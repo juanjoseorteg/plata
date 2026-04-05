@@ -1986,7 +1986,7 @@ document.addEventListener('click',function(e){
   if(t.id==='tab-signup'){authMode='signup';document.getElementById('tab-signup').classList.add('active');document.getElementById('tab-login').classList.remove('active');document.getElementById('auth-submit').textContent='Create account';document.getElementById('auth-name-field').style.display='flex';return;}
   if(t.id==='auth-submit'){doAuth();return;}
   if(t.id==='b-signout'||t.id==='b-signout2'){signOut();return;}
-  const ni=t.closest('.ni');if(ni&&ni.dataset.p){closeAllMenus();goto(ni.dataset.p);return;}
+  const ni=t.closest('.ni');if(ni&&ni.dataset.p){closeAllMenus();closeMobMenu();goto(ni.dataset.p);return;}
   const id=t.id;
   if(id==='b-new-tx'||id==='b-add-spend'||id==='b-new-tx2'){openTxModal();return;}
   if(id==='b-new-goal'||id==='b-new-goal2'){openGoalModal();return;}
@@ -2116,20 +2116,18 @@ document.getElementById('ai-toast-inp').addEventListener('keydown',function(e){i
 document.getElementById('auth-email').addEventListener('keydown',function(e){if(e.key==='Enter')document.getElementById('auth-pass').focus();});
 document.getElementById('auth-pass').addEventListener('keydown',function(e){if(e.key==='Enter')doAuth();});
 // Mobile menu
-document.getElementById('mob-menu-btn').addEventListener('click',()=>{
+function openMobMenu(){
   document.getElementById('mob-drawer').classList.add('open');
   document.getElementById('mob-overlay').classList.add('open');
-});
-document.getElementById('mob-overlay').addEventListener('click',()=>{
+}
+function closeMobMenu(){
   document.getElementById('mob-drawer').classList.remove('open');
   document.getElementById('mob-overlay').classList.remove('open');
-});
-// Close drawer on nav item tap
+}
+document.getElementById('mob-menu-btn').addEventListener('click', openMobMenu);
+document.getElementById('mob-overlay').addEventListener('click', closeMobMenu);
 document.getElementById('mob-drawer').querySelectorAll('.ni').forEach(ni=>{
-  ni.addEventListener('click',()=>{
-    document.getElementById('mob-drawer').classList.remove('open');
-    document.getElementById('mob-overlay').classList.remove('open');
-  });
+  ni.addEventListener('click', closeMobMenu);
 });
 // ── INIT ──────────────────────────────────────────────────────────────────
 initAuth();
