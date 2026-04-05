@@ -24,7 +24,6 @@
   .sidebar{display:none!important;}
   .shell{grid-template-columns:1fr!important;}
   .page{padding:20px;padding-top:68px;}
-  .hdr{padding-left:52px;}
   .stats-row{grid-template-columns:repeat(2,1fr);}
 }
 .payday-modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);backdrop-filter:blur(4px);z-index:700;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .25s;}
@@ -2101,10 +2100,12 @@ document.getElementById('auth-pass').addEventListener('keydown',function(e){if(e
 function openMobMenu(){
   document.getElementById('mob-drawer').classList.add('open');
   document.getElementById('mob-overlay').classList.add('open');
+  document.getElementById('mob-menu-btn').style.display='none';
 }
 function closeMobMenu(){
   document.getElementById('mob-drawer').classList.remove('open');
   document.getElementById('mob-overlay').classList.remove('open');
+  if(window.innerWidth<=900) document.getElementById('mob-menu-btn').style.display='flex';
 }
 document.addEventListener('click', function(e){
   if(e.target.closest('#mob-menu-btn')) openMobMenu();
