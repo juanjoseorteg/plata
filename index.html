@@ -84,6 +84,7 @@ nav{display:flex;flex-direction:column;gap:2px;}
 .btn-ai:hover{background:linear-gradient(135deg,rgba(102,245,200,.25),rgba(196,102,245,.25));}
 .btn-red{background:transparent;border:1px solid var(--a4);color:var(--a4);}
 .stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;}
+@media(max-width:900px){.stats-row{grid-template-columns:repeat(2,1fr);}}
 .sc{background:var(--s);border:1px solid var(--bd);border-radius:14px;padding:18px;position:relative;overflow:hidden;}
 .sc::after{content:'';position:absolute;top:0;left:0;right:0;height:2px;}
 .sc.cg::after{background:var(--a);}
@@ -2105,10 +2106,9 @@ function closeMobMenu(){
   document.getElementById('mob-drawer').classList.remove('open');
   document.getElementById('mob-overlay').classList.remove('open');
 }
-document.getElementById('mob-menu-btn').addEventListener('click', openMobMenu);
-document.getElementById('mob-overlay').addEventListener('click', closeMobMenu);
-document.getElementById('mob-drawer').querySelectorAll('.ni').forEach(ni=>{
-  ni.addEventListener('click', closeMobMenu);
+document.addEventListener('click', function(e){
+  if(e.target.closest('#mob-menu-btn')) openMobMenu();
+  if(e.target.id==='mob-overlay') closeMobMenu();
 });
 // ── INIT ──────────────────────────────────────────────────────────────────
 initAuth();
