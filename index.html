@@ -13,15 +13,19 @@
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@300;400;500&family=Sora:wght@300;400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
-.mob-menu-btn{display:none;position:fixed;top:16px;left:16px;z-index:800;width:40px;height:40px;border-radius:10px;background:var(--s);border:1px solid var(--bd);align-items:center;justify-content:center;cursor:pointer;flex-direction:column;gap:5px;padding:10px;}
+.mob-menu-btn{display:none;position:fixed;top:16px;left:16px;z-index:1000;width:40px;height:40px;border-radius:10px;background:var(--s);border:1px solid var(--bd);align-items:center;justify-content:center;cursor:pointer;flex-direction:column;gap:5px;padding:10px;}
 .mob-menu-btn span{display:block;width:18px;height:2px;background:var(--t);border-radius:2px;}
-.mob-overlay{visibility:hidden;position:fixed;inset:0;background:rgba(0,0,0,.75);backdrop-filter:blur(4px);z-index:801;pointer-events:none;}
-.mob-overlay.open{visibility:visible;pointer-events:all;}
-.mob-overlay{visibility:hidden;position:fixed;inset:0;background:rgba(0,0,0,.75);backdrop-filter:blur(4px);z-index:899;pointer-events:none;}
-.mob-overlay.open{visibility:visible;pointer-events:all;}@media(max-width:900px){
+.mob-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);backdrop-filter:blur(4px);z-index:998;pointer-events:none;}
+.mob-overlay.open{display:block;pointer-events:all;}
+.mob-drawer{position:fixed;top:0;left:0;bottom:0;width:280px;max-width:85vw;background:var(--s);border-right:1px solid var(--bd);z-index:999;transform:translateX(-100%);transition:transform .3s cubic-bezier(.16,1,.3,1);padding:28px 16px;display:flex;flex-direction:column;gap:28px;overflow-y:auto;}
+.mob-drawer.open{transform:translateX(0);}
+@media(max-width:900px){
   .mob-menu-btn{display:none;}
-  .page{padding:20px;padding-top:24px;}
+  .sidebar{display:none!important;}
+  .shell{grid-template-columns:1fr!important;}
+  .page{padding:20px;padding-top:68px;}
   .hdr{padding-left:52px;}
+  .stats-row{grid-template-columns:repeat(2,1fr);}
 }
 .payday-modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);backdrop-filter:blur(4px);z-index:700;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .25s;}
 .payday-modal-overlay.open{opacity:1;pointer-events:all;}
@@ -911,7 +915,6 @@ async function signOut(){
   document.getElementById('auth-email').value='';
   document.getElementById('auth-pass').value='';
   document.getElementById('mob-menu-btn').style.display='none';
-  document.getElementById('mob-menu-btn').style.display='none';
 }
 
 // ── LOAD APP ──────────────────────────────────────────────────────────────
@@ -975,7 +978,6 @@ async function loadApp(user){
   document.getElementById('app-loading').style.display='none';
   document.getElementById('app-shell').classList.add('ready');
   if(window.innerWidth <= 900) document.getElementById('mob-menu-btn').style.display='flex';
-  document.getElementById('mob-menu-btn').style.display='flex';
   pulseShown=false;
   goto('dashboard');
 }
