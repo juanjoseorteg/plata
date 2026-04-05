@@ -15,10 +15,10 @@
 <style>
 .mob-menu-btn{display:none;position:fixed;top:16px;left:16px;z-index:800;width:40px;height:40px;border-radius:10px;background:var(--s);border:1px solid var(--bd);align-items:center;justify-content:center;cursor:pointer;flex-direction:column;gap:5px;padding:10px;}
 .mob-menu-btn span{display:block;width:18px;height:2px;background:var(--t);border-radius:2px;}
-.mob-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);backdrop-filter:blur(3px);z-index:801;}
-.mob-overlay.open{display:block;}
-.mob-drawer{position:fixed;top:0;left:0;bottom:0;width:280px;max-width:85vw;background:var(--s);border-right:1px solid var(--bd);z-index:802;transform:translateX(-100%);transition:transform .3s cubic-bezier(.16,1,.3,1);padding:28px 16px;display:flex;flex-direction:column;gap:28px;overflow-y:auto;}.mob-drawer.open{transform:translateX(0);}
-@media(max-width:900px){
+.mob-overlay{visibility:hidden;position:fixed;inset:0;background:rgba(0,0,0,.75);backdrop-filter:blur(4px);z-index:801;pointer-events:none;}
+.mob-overlay.open{visibility:visible;pointer-events:all;}
+.mob-overlay{visibility:hidden;position:fixed;inset:0;background:rgba(0,0,0,.75);backdrop-filter:blur(4px);z-index:899;pointer-events:none;}
+.mob-overlay.open{visibility:visible;pointer-events:all;}@media(max-width:900px){
   .mob-menu-btn{display:none;}
   .page{padding:20px;padding-top:24px;}
   .hdr{padding-left:52px;}
