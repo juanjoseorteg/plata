@@ -336,15 +336,31 @@ nav{display:flex;flex-direction:column;gap:2px;}
 ::-webkit-scrollbar{width:4px;}
 ::-webkit-scrollbar-thumb{background:var(--bd);border-radius:2px;}
 @media(max-width:1000px){.cg2,.goals-layout,.planner-layout,.rg{grid-template-columns:1fr}}
-@media(max-width:900px){
-  .mob-menu-btn{display:none;}
-  .page{padding:20px;padding-top:24px;}
-  .hdr{padding-left:52px;}
-  .page > div:first-child{padding-left:52px;}
-}
 </style>
 </head>
 <body>
+  <!-- ONBOARDING WIZARD -->
+<div id="onboarding" style="display:none;position:fixed;inset:0;background:var(--bg);z-index:2000;overflow-y:auto;">
+  <div style="max-width:560px;margin:0 auto;padding:40px 24px;min-height:100vh;display:flex;flex-direction:column;">
+    
+    <!-- Progress bar -->
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:40px">
+      <div style="flex:1;height:3px;background:var(--bd);border-radius:2px;overflow:hidden">
+        <div id="ob-progress" style="height:100%;background:var(--a);border-radius:2px;transition:width .4s;width:0%"></div>
+      </div>
+      <div id="ob-step-label" style="font-size:11px;color:var(--t2);white-space:nowrap">Step 1 of 5</div>
+    </div>
+
+    <!-- Steps container -->
+    <div id="ob-steps" style="flex:1;display:flex;flex-direction:column;gap:24px"></div>
+
+    <!-- Navigation -->
+    <div style="display:flex;gap:10px;margin-top:32px" id="ob-nav">
+      <button id="ob-back" class="btn btn-g" style="flex:1;padding:14px;display:none">← Back</button>
+      <button id="ob-next" class="btn btn-p" style="flex:1;padding:14px">Continue →</button>
+    </div>
+  </div>
+</div>
 <!-- AUTH -->
 <div class="auth-screen" id="auth-screen">
   <div class="auth-box">
@@ -420,8 +436,7 @@ nav{display:flex;flex-direction:column;gap:2px;}
   <div class="stats-row" id="d-stats"></div>
   <div class="cg2">
     <div style="display:flex;flex-direction:column;gap:18px">
-      <div class="card"><div class="ch"><div class="ct_">Budget Categories</div><button class="ca" id="b-add-spend">+ Add spend</button></div><div id="d-cats"></div></div>
-      <div class="card"><div class="ch"><div class="ct_">Recent Transactions</div><button class="ca" id="b-all-tx">See all →</button></div><div id="d-txs"></div></div>
+<div class="card"><div class="ch"><div class="ct_">Envelope Budgets</div><button class="ca" id="b-manage-envelopes">Manage →</button></div><div id="d-cats"></div></div>      <div class="card"><div class="ch"><div class="ct_">Recent Transactions</div><button class="ca" id="b-all-tx">See all →</button></div><div id="d-txs"></div></div>
     </div>
     <div class="rc">
       <div class="card"><div class="ch"><div class="ct_">Spending breakdown</div></div>
@@ -546,12 +561,12 @@ nav{display:flex;flex-direction:column;gap:2px;}
 
 <!-- SHORTCUTS -->
 <div id="pg-shortcuts" class="page">
-  <div class="hdr"><div><div class="pt">Apple Pay <span>Shortcut</span></div><div class="ps">Set up automatic transaction logging in 5 minutes</div></div></div>
+  <div class="hdr"><div><div class="pt">Apple Pay <span>Shortcut</span></div><div class="ps">Log expenses automatically after every Apple Pay payment</div></div></div>
   <div style="display:flex;flex-direction:column;gap:14px;max-width:680px">
     <div class="step"><div class="snum">1</div><div><div class="stit">Open Shortcuts → Automation → New Automation → Apple Pay</div><div class="sbod">This trigger fires every time you complete an Apple Pay payment on your iPhone.</div></div></div>
-    <div class="step"><div class="snum">2</div><div><div class="stit">Add "Ask for Input" — type Number</div><div class="sbod">Prompt: "How much did you spend?" — you type the amount right after paying.</div></div></div>
-    <div class="step"><div class="snum">3</div><div><div class="stit">Add "Choose from Menu" for category</div><div class="sbod">Options: Food, Transport, Shopping, Health, Entertainment, Bills, Other.</div></div></div>
-    <div class="step"><div class="snum">4</div><div><div class="stit">Add "Open URL" with your Plata deep link</div><div class="sbod">This opens the app and pre-fills the transaction form automatically.</div><div class="code">plata://log?amount=[Provided Input]&amp;cat=[Chosen Item]</div></div></div>
+    <div class="step"><div class="snum">2</div><div><div class="stit">The amount is read automatically</div><div class="sbod">Apple Pay passes the transaction amount to the shortcut — no need to type it manually.</div></div></div>
+    <div class="step"><div class="snum">3</div><div><div class="stit">Add "Choose from Menu" for envelope</div><div class="sbod" id="shortcut-envelope-list">Loading your envelopes…</div></div></div>
+    <div class="step"><div class="snum">4</div><div><div class="stit">Add "Open URL" with your Plata deep link</div><div class="sbod">This opens Plata and pre-fills the transaction with the Apple Pay amount and your envelope.</div><div class="code" id="shortcut-deep-link">plata://log?amount=[Payments Amount]&amp;env=[Chosen Item]</div></div></div>
     <div class="step"><div class="snum">5</div><div><div class="stit">Turn off "Ask Before Running"</div><div class="sbod">So the Shortcut fires silently in the background every time you pay.</div></div></div>
   </div>
 </div>
@@ -563,7 +578,6 @@ nav{display:flex;flex-direction:column;gap:2px;}
     <div><div style="font-size:11px;font-weight:500;letter-spacing:1.5px;color:var(--t3);text-transform:uppercase;margin-bottom:10px">Profile</div>
       <div class="ss-sec">
         <div class="ss-row"><div><div style="font-size:13px;font-weight:500">Name</div></div><input id="settings-name" style="background:var(--s2);border:1px solid var(--bd);border-radius:8px;padding:7px 12px;color:var(--t);font-family:'Sora',sans-serif;font-size:12px;outline:none;width:160px"/></div>
-        <div class="ss-row"><div><div style="font-size:13px;font-weight:500">Monthly budget (COP)</div></div><input type="number" id="settings-budget" style="background:var(--s2);border:1px solid var(--bd);border-radius:8px;padding:7px 12px;color:var(--t);font-family:'DM Mono',monospace;font-size:12px;outline:none;width:160px"/></div>
         <div class="ss-row"><div><div style="font-size:13px;font-weight:500">Account</div><div style="font-size:11px;color:var(--t2);margin-top:3px" id="settings-email">—</div></div><button class="btn btn-red" style="font-size:12px;padding:7px 14px" id="b-signout2">Sign out</button></div>
       </div>
     </div>
@@ -572,6 +586,10 @@ nav{display:flex;flex-direction:column;gap:2px;}
         <div class="ss-row"><div><div style="font-size:13px;font-weight:500">Budget alerts</div><div style="font-size:11px;color:var(--t2)">Notify when a category hits 80%</div></div><div class="toggle on"></div></div>
         <div class="ss-row"><div><div style="font-size:13px;font-weight:500">Weekly summary</div><div style="font-size:11px;color:var(--t2)">Every Sunday evening</div></div><div class="toggle on"></div></div>
       </div>
+    </div>
+    <div><div style="font-size:11px;font-weight:500;letter-spacing:1.5px;color:var(--t3);text-transform:uppercase;margin-bottom:10px">Envelopes</div>
+      <div id="settings-envelopes"></div>
+      <button class="btn btn-g" style="width:100%;margin-top:10px;font-size:12px;padding:10px" id="b-add-envelope">+ Add envelope</button>
     </div>
     <div><div style="font-size:11px;font-weight:500;letter-spacing:1.5px;color:var(--t3);text-transform:uppercase;margin-bottom:10px">Data</div>
       <div class="ss-sec">
@@ -604,7 +622,7 @@ nav{display:flex;flex-direction:column;gap:2px;}
   <div class="field"><label>Description</label><input type="text" id="tx-desc" placeholder="e.g. Lunch at Crepes &amp; Waffles"/></div>
   <div class="field"><label>Account</label><select id="tx-account"></select></div>
   <div id="tx-cat-section">
-    <div class="field"><label>Category</label></div>
+    <div class="field"><label>Envelope</label></div>
     <div class="cgrid" id="tx-cgrid"></div>
   </div>
   <div class="field"><label>Date</label><input type="date" id="tx-date"/></div>
@@ -792,10 +810,9 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
 // ── STATE ─────────────────────────────────────────────────────────────────
 let currentUser = null;
 let BUDGET = 4200000;
-let cats = [], txs = [], goals = [], accounts = [];
+let cats = [], txs = [], goals = [], accounts = [], envelopes = [], fixedExpenses = [];
 let incomeSrc = [];
-let incId = 2, txSelCat = 'food', etxSelCat = 'food', txFilter = 'all', repMonth = 'Apr 2026';
-let pendingMilestones = [], chatHist = [], toastChatHist = [], toastExpanded = false, pulseShown = false;
+let incId = 2, txSelCat = 'food', etxSelCat = 'food', txFilter = 'all', repMonth = 'Apr 2026', txSelEnv = null;let pendingMilestones = [], chatHist = [], toastChatHist = [], toastExpanded = false, pulseShown = false;
 let toastAutoClose = null, pulseCtx = null, authMode = 'login';
 let txType = 'expense', currentTRM = 4200, trmUpdated = null;
 
@@ -810,8 +827,7 @@ const DEFAULT_CATS = [
 ];
 
 // ── UTILS ─────────────────────────────────────────────────────────────────
-const fmt = n => {const a=Math.abs(n);return a>=1e6?'$'+(a/1e6).toFixed(1)+'M':a>=1000?'$'+Math.round(a/1000)+'K':'$'+a.toLocaleString();};
-const fmtUSD = n => '$'+(Math.abs(n)).toFixed(2);
+const fmt = n => {const a=Math.round(Math.abs(n));return '$'+a.toString().replace(/\B(?=(\d{3})+(?!\d))/g,'.');};const fmtUSD = n => '$'+(Math.abs(n)).toFixed(2);
 const toWeekly = (a,f) => f==='monthly'?a/4.33:f==='biweekly'?a/2:a;
 const toMonthly = (a,f) => f==='monthly'?a:f==='biweekly'?a*2:a*4.33;
 const catById = id => cats.find(c=>c.id===id)||{name:'Other',color:'#7a8c82',icon:'📦'};
@@ -874,7 +890,307 @@ async function fetchTRM(){
     }
   }
 }
+// ── ONBOARDING ────────────────────────────────────────────────────────────
+let obStep = 0;
+let obData = {
+  fixedExpenses: [],
+  spendingEnvelopes: [],
+  savingsEnvelopes: []
+};
 
+const OB_STEPS = ['welcome', 'fixed', 'spending', 'savings', 'review'];
+
+async function checkOnboarding(){
+  const {data:envs} = await sb.from('envelopes').select('id').eq('user_id', currentUser.id).limit(1);
+  if(!envs||!envs.length){
+    // No envelopes — show onboarding
+    document.getElementById('app-shell').classList.remove('ready');
+    obStep = 0;
+    obData = {fixedExpenses:[], spendingEnvelopes:[], savingsEnvelopes:[]};
+    renderObStep();
+    document.getElementById('onboarding').style.display='block';
+  }
+}
+
+function updateObProgress(){
+  const pct = Math.round((obStep / (OB_STEPS.length-1)) * 100);
+  document.getElementById('ob-progress').style.width = pct+'%';
+  document.getElementById('ob-step-label').textContent = `Step ${obStep+1} of ${OB_STEPS.length}`;
+  document.getElementById('ob-back').style.display = obStep > 0 ? 'block' : 'none';
+  document.getElementById('ob-next').textContent = obStep === OB_STEPS.length-1 ? 'Finish setup ✓' : 'Continue →';
+}
+
+function renderObStep(){
+  updateObProgress();
+  const container = document.getElementById('ob-steps');
+  const step = OB_STEPS[obStep];
+
+  if(step === 'welcome') container.innerHTML = `
+    <div style="text-align:center;padding:20px 0">
+      <div style="font-size:48px;margin-bottom:16px">₱</div>
+      <div style="font-family:'DM Serif Display',serif;font-size:32px;letter-spacing:-.5px;margin-bottom:12px">Welcome to <span style="color:var(--a)">Plata</span></div>
+      <div style="font-size:14px;color:var(--t2);line-height:1.7;max-width:380px;margin:0 auto">Let's set up your personal budget in about 2 minutes. We'll create spending envelopes, track your fixed expenses, and link your savings goals.</div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:12px;margin-top:8px">
+      ${[['📦','Envelope budgeting','Every peso gets a job before it arrives'],['🔒','Fixed expenses','Rent, bills, subscriptions tracked automatically'],['🎯','Goal-linked savings','Know exactly how much to save each payday'],['✦','AI guidance','Smart split suggestions every payday']].map(([icon,title,desc])=>`
+        <div style="display:flex;align-items:center;gap:14px;padding:14px;background:var(--s);border:1px solid var(--bd);border-radius:12px">
+          <div style="font-size:22px;width:36px;text-align:center">${icon}</div>
+          <div><div style="font-size:13px;font-weight:600;margin-bottom:2px">${title}</div><div style="font-size:12px;color:var(--t2)">${desc}</div></div>
+        </div>`).join('')}
+    </div>`;
+
+  else if(step === 'fixed') container.innerHTML = `
+    <div>
+      <div style="font-family:'DM Serif Display',serif;font-size:26px;letter-spacing:-.5px;margin-bottom:6px">Fixed <span style="color:var(--a)">expenses</span></div>
+      <div style="font-size:13px;color:var(--t2);margin-bottom:24px">Things you pay every month — rent, internet, subscriptions.</div>
+      <div id="ob-fixed-list" style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px">${obData.fixedExpenses.map((e,i)=>obFixedItem(e,i)).join('')}</div>
+      <button id="ob-add-fixed" style="width:100%;padding:12px;border-radius:10px;background:transparent;border:1px dashed var(--bd);color:var(--t2);font-family:'Sora',sans-serif;font-size:13px;cursor:pointer;">+ Add fixed expense</button>
+    </div>`;
+
+  else if(step === 'spending') container.innerHTML = `
+    <div>
+      <div style="font-family:'DM Serif Display',serif;font-size:26px;letter-spacing:-.5px;margin-bottom:6px">Spending <span style="color:var(--a)">envelopes</span></div>
+      <div style="font-size:13px;color:var(--t2);margin-bottom:24px">How much do you usually spend each month on these?</div>
+      <div id="ob-spending-list" style="display:flex;flex-direction:column;gap:10px">${obData.spendingEnvelopes.length ? obData.spendingEnvelopes.map((e,i)=>obSpendingItem(e,i)).join('') : obDefaultSpending()}</div>
+      <button id="ob-add-spending" style="width:100%;margin-top:12px;padding:12px;border-radius:10px;background:transparent;border:1px dashed var(--bd);color:var(--t2);font-family:'Sora',sans-serif;font-size:13px;cursor:pointer;">+ Add custom envelope</button>
+    </div>`;
+
+  else if(step === 'savings') container.innerHTML = `
+    <div>
+      <div style="font-family:'DM Serif Display',serif;font-size:26px;letter-spacing:-.5px;margin-bottom:6px">Savings <span style="color:var(--a)">envelopes</span></div>
+      <div style="font-size:13px;color:var(--t2);margin-bottom:24px">How much will you save per month for each goal?</div>
+${goals.length ? `<div id="ob-savings-list" style="display:flex;flex-direction:column;gap:10px">${goals.map((g,i)=>obSavingsItem(g,i)).join('')}</div>` : `<div style="text-align:center;padding:40px;background:var(--s);border:1px solid var(--bd);border-radius:12px;color:var(--t2);font-size:13px;line-height:1.7">No goals yet.<br><span style="font-size:12px">You can add savings goals later from the Goals page.</span></div>`}      <div style="margin-top:16px;padding:14px;background:rgba(102,245,200,.06);border:1px solid rgba(102,245,200,.2);border-radius:10px">
+        <div style="font-size:11px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;color:var(--a2);margin-bottom:6px">✦ AI currency tip</div>
+        <div style="font-size:12px;color:var(--t2);line-height:1.6">Goals you'll spend in Colombia → save in COP. Goals involving USD (US trips, international purchases) → save in USD to avoid conversion losses.</div>
+      </div>
+    </div>`;
+
+  else if(step === 'review') renderObReview();
+}
+
+function obFixedItem(e, i){
+  return `<div style="display:flex;flex-direction:column;gap:8px;background:var(--s);border:1px solid var(--bd);border-radius:10px;padding:12px">
+    <div style="display:flex;gap:8px;align-items:center">
+      <input value="${e.icon||'📄'}" maxlength="2" style="width:40px;background:var(--s2);border:1px solid var(--bd);border-radius:8px;padding:6px;color:var(--t);font-size:16px;text-align:center;outline:none" onchange="obData.fixedExpenses[${i}].icon=this.value"/>
+      <input value="${e.name}" placeholder="e.g. Rent" style="flex:2;background:var(--s2);border:1px solid var(--bd);border-radius:8px;padding:8px 10px;color:var(--t);font-family:'Sora',sans-serif;font-size:12px;outline:none" onchange="obData.fixedExpenses[${i}].name=this.value"/>
+      <input type="number" value="${e.amount||''}" placeholder="Amount" style="flex:2;background:var(--s2);border:1px solid var(--bd);border-radius:8px;padding:8px 10px;color:var(--t);font-family:'DM Mono',monospace;font-size:12px;outline:none" onchange="obData.fixedExpenses[${i}].amount=+this.value"/>
+      <button onclick="obData.fixedExpenses.splice(${i},1);renderObStep()" style="background:none;border:none;color:var(--a4);cursor:pointer;font-size:16px;padding:4px">✕</button>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <select style="flex:1;background:var(--s2);border:1px solid var(--bd);border-radius:8px;padding:8px;color:var(--t);font-family:'Sora',sans-serif;font-size:11px;outline:none" onchange="obData.fixedExpenses[${i}].currency=this.value">
+        <option${e.currency==='COP'?' selected':''}>COP</option>
+        <option${e.currency==='USD'?' selected':''}>USD</option>
+      </select>
+      <select style="flex:2;background:var(--s2);border:1px solid var(--bd);border-radius:8px;padding:8px;color:var(--t);font-family:'Sora',sans-serif;font-size:11px;outline:none" onchange="obData.fixedExpenses[${i}].account_id=this.value">
+        <option value="">— Pay from account —</option>
+        ${accounts.map(a=>`<option value="${a.id}"${e.account_id===a.id?' selected':''}>${a.icon} ${a.name}</option>`).join('')}
+      </select>
+      <input type="number" value="${e.due_day||''}" placeholder="Due day (1-31)" min="1" max="31" style="width:80px;background:var(--s2);border:1px solid var(--bd);border-radius:8px;padding:8px;color:var(--t);font-family:'DM Mono',monospace;font-size:12px;outline:none;text-align:center" onchange="obData.fixedExpenses[${i}].due_day=+this.value"/>
+    </div>
+  </div>`;
+}
+
+function obDefaultSpending(){
+  if(!obData.spendingEnvelopes.length){
+    obData.spendingEnvelopes = [
+      {name:'Food & Dining',icon:'🍽️',amount:0,currency:'COP'},
+      {name:'Transport',icon:'🚗',amount:0,currency:'COP'},
+      {name:'Going out',icon:'🎉',amount:0,currency:'COP'},
+      {name:'Health',icon:'💊',amount:0,currency:'COP'},
+      {name:'Personal',icon:'🛍️',amount:0,currency:'COP'},
+    ];
+  }
+  return obData.spendingEnvelopes.map((e,i)=>obSpendingItem(e,i)).join('');
+}
+
+function obSpendingItem(e, i){
+  return `<div style="display:flex;gap:8px;align-items:center;background:var(--s);border:1px solid var(--bd);border-radius:10px;padding:12px">
+    <input value="${e.icon||'📦'}" maxlength="2" style="width:40px;background:var(--s2);border:1px solid var(--bd);border-radius:8px;padding:6px;color:var(--t);font-size:16px;text-align:center;outline:none" onchange="obData.spendingEnvelopes[${i}].icon=this.value"/>
+    <input value="${e.name}" placeholder="e.g. Food" style="flex:2;background:var(--s2);border:1px solid var(--bd);border-radius:8px;padding:8px 10px;color:var(--t);font-family:'Sora',sans-serif;font-size:12px;outline:none" onchange="obData.spendingEnvelopes[${i}].name=this.value"/>
+    <input type="number" value="${e.amount||''}" placeholder="Monthly" style="flex:2;background:var(--s2);border:1px solid var(--bd);border-radius:8px;padding:8px 10px;color:var(--t);font-family:'DM Mono',monospace;font-size:12px;outline:none" onchange="obData.spendingEnvelopes[${i}].amount=+this.value"/>
+    <button onclick="obData.spendingEnvelopes.splice(${i},1);renderObStep()" style="background:none;border:none;color:var(--a4);cursor:pointer;font-size:16px;padding:4px">✕</button>
+  </div>`;
+}
+
+function obSavingsItem(g, i){
+  const existing = obData.savingsEnvelopes.find(e=>e.goal_id===g.id)||{amount:0,currency:'COP'};
+  if(!obData.savingsEnvelopes.find(e=>e.goal_id===g.id)){
+    obData.savingsEnvelopes.push({name:g.name,icon:g.icon,amount:0,currency:'COP',goal_id:g.id});
+  }
+  const idx = obData.savingsEnvelopes.findIndex(e=>e.goal_id===g.id);
+  const daysLeft = daysUntil(g.deadline);
+  const needed = g.target - g.saved;
+  const monthsLeft = Math.max(1, Math.ceil(daysLeft/30));
+  const suggestedMonthly = Math.round(needed/monthsLeft);
+  return `<div style="background:var(--s);border:1px solid var(--bd);border-radius:10px;padding:14px">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+      <span style="font-size:22px">${g.icon}</span>
+      <div style="flex:1">
+        <div style="font-size:13px;font-weight:600">${g.name}</div>
+        <div style="font-size:11px;color:var(--t2)">${fmt(needed)} needed · ${daysLeft} days left</div>
+      </div>
+    </div>
+    <div style="font-size:11px;color:var(--a2);margin-bottom:8px">✦ Suggested: ${fmt(suggestedMonthly)}/month to hit deadline</div>
+    <div style="display:flex;gap:8px">
+      <input type="number" value="${obData.savingsEnvelopes[idx]?.amount||''}" placeholder="Monthly savings amount" style="flex:1;background:var(--s2);border:1px solid var(--bd);border-radius:8px;padding:8px 10px;color:var(--t);font-family:'DM Mono',monospace;font-size:12px;outline:none" onchange="obData.savingsEnvelopes[${idx}].amount=+this.value"/>
+      <select style="background:var(--s2);border:1px solid var(--bd);border-radius:8px;padding:8px;color:var(--t);font-family:'Sora',sans-serif;font-size:11px;outline:none" onchange="obData.savingsEnvelopes[${idx}].currency=this.value">
+        <option${obData.savingsEnvelopes[idx]?.currency==='COP'?' selected':''}>COP</option>
+        <option${obData.savingsEnvelopes[idx]?.currency==='USD'?' selected':''}>USD</option>
+      </select>
+    </div>
+  </div>`;
+}
+
+async function renderObReview(){
+  const container = document.getElementById('ob-steps');
+  const totalFixed = obData.fixedExpenses.reduce((s,e)=>s+(e.currency==='USD'?e.amount*currentTRM:e.amount),0);
+  const totalSpending = obData.spendingEnvelopes.reduce((s,e)=>s+e.amount,0);
+  const totalSavings = obData.savingsEnvelopes.reduce((s,e)=>s+(e.currency==='USD'?e.amount*currentTRM:e.amount),0);
+  const totalAll = totalFixed+totalSpending+totalSavings;
+  const weeklyIncome = incomeSrc.reduce((a,s)=>a+toWeekly(s.amountCOP||s.amount,s.freqForCalc||'monthly'),0);
+  const monthlyIncome = weeklyIncome*4.33;
+  const diff = monthlyIncome - totalAll;
+  const health = diff>=0?'good':'warning';
+
+  container.innerHTML = `
+    <div>
+      <div style="font-family:'DM Serif Display',serif;font-size:26px;letter-spacing:-.5px;margin-bottom:6px">Review your <span style="color:var(--a)">setup</span></div>
+      <div style="font-size:13px;color:var(--t2);margin-bottom:24px">Here's your full budget picture.</div>
+      
+      ${[
+        ['🔒 Fixed expenses', totalFixed, obData.fixedExpenses.length+' items'],
+        ['📦 Spending envelopes', totalSpending, obData.spendingEnvelopes.length+' envelopes'],
+        ['🎯 Savings envelopes', totalSavings, obData.savingsEnvelopes.length+' goals'],
+      ].map(([label,amt,sub])=>`
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--bd)">
+          <div><div style="font-size:13px;font-weight:500">${label}</div><div style="font-size:11px;color:var(--t2)">${sub}</div></div>
+          <div style="font-family:'DM Mono',monospace;font-size:14px;font-weight:500">${fmt(amt)}/mo</div>
+        </div>`).join('')}
+      
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:14px;margin-top:12px;background:${health==='good'?'rgba(184,245,102,.08)':'rgba(245,196,102,.06)'};border:1px solid ${health==='good'?'rgba(184,245,102,.2)':'rgba(245,196,102,.2)'};border-radius:10px">
+        <div><div style="font-size:13px;font-weight:600">Total allocated</div><div style="font-size:11px;color:var(--t2)">of ${monthlyIncome?fmt(monthlyIncome)+'/mo income':'your monthly income'}</div></div>
+        <div style="text-align:right">
+          <div style="font-family:'DM Mono',monospace;font-size:18px;font-weight:500;color:${health==='good'?'var(--a)':'var(--a3)'}">${fmt(totalAll)}/mo</div>
+          ${monthlyIncome?`<div style="font-size:11px;color:${diff>=0?'var(--a)':'var(--a4)'};margin-top:2px">${diff>=0?fmt(diff)+' unallocated':fmt(Math.abs(diff))+' over budget'}</div>`:''}
+        </div>
+      </div>
+      ${!monthlyIncome?`<div style="margin-top:12px;padding:12px;background:rgba(245,196,102,.06);border:1px solid rgba(245,196,102,.2);border-radius:10px;font-size:12px;color:var(--t2)">💡 Add recurring income in the AI Planner to see how your budget compares to your income.</div>`:''}
+    </div>`;
+}
+
+async function obNext(){
+  const step = OB_STEPS[obStep];
+
+  // Validate current step
+  if(step==='fixed'){
+    const invalid = obData.fixedExpenses.some(e=>!e.name||!e.amount);
+    if(invalid){showMsg('Fill in name and amount for all fixed expenses','var(--a4)');return;}
+  }
+  if(step==='spending'){
+    // Collect current values from inputs
+    document.querySelectorAll('#ob-spending-list input[type="number"]').forEach((inp,i)=>{
+      if(obData.spendingEnvelopes[i]) obData.spendingEnvelopes[i].amount=+inp.value;
+    });
+    const hasAny = obData.spendingEnvelopes.some(e=>e.amount>0);
+    if(!hasAny){showMsg('Add at least one spending amount','var(--a4)');return;}
+  }
+  if(step==='savings' && goals.length){
+    const missing = obData.savingsEnvelopes.some(e=>!e.amount||e.amount<=0);
+    if(missing){showMsg('Enter a monthly savings amount for each goal','var(--a4)');return;}
+  }
+
+  if(step==='review'){
+    await saveOnboarding();
+    return;
+  }
+
+  obStep++;
+  renderObStep();
+}
+async function saveOnboarding(){
+  document.getElementById('ob-next').textContent='Saving…';
+  document.getElementById('ob-next').disabled=true;
+
+  try{
+    const allEnvelopes = [
+      ...obData.fixedExpenses.map(e=>({
+        user_id:currentUser.id,
+        name:e.name,
+        icon:e.icon||'📄',
+        currency:e.currency||'COP',
+        monthly_allocation:e.amount,
+        type:'fixed'
+      })),
+      ...obData.spendingEnvelopes.filter(e=>e.amount>0).map(e=>({
+        user_id:currentUser.id,
+        name:e.name,
+        icon:e.icon||'📦',
+        currency:e.currency||'COP',
+        monthly_allocation:e.amount,
+        type:'spending'
+      })),
+      ...obData.savingsEnvelopes.filter(e=>e.amount>0).map(e=>({
+        user_id:currentUser.id,
+        name:e.name,
+        icon:e.icon||'🎯',
+        currency:e.currency||'COP',
+        monthly_allocation:e.amount,
+        type:'savings',
+        goal_id:e.goal_id||null
+      }))
+    ];
+
+    await sb.from('envelopes').insert(allEnvelopes);
+
+    // Save fixed expenses separately
+    if(obData.fixedExpenses.length){
+      await sb.from('fixed_expenses').insert(obData.fixedExpenses.map(e=>({
+        user_id:currentUser.id,
+        name:e.name,
+        icon:e.icon||'📄',
+        amount:e.amount,
+        currency:e.currency||'COP',
+        due_day:e.due_day||1,
+        account_id:e.account_id||null
+      })));
+    }
+
+    document.getElementById('onboarding').style.display='none';
+    document.getElementById('app-shell').classList.add('ready');
+    if(window.innerWidth<=900) document.getElementById('mob-menu-btn').style.display='flex';
+    showMsg('Budget setup complete! ✓');
+
+    // Reload envelopes and fixed expenses from DB into memory
+    const {data:freshEnvs} = await sb.from('envelopes').select('*').eq('user_id',currentUser.id).order('created_at');
+    envelopes = (freshEnvs||[]).map(e=>({...e,spent:0}));
+    const {data:freshFixed} = await sb.from('fixed_expenses').select('*').eq('user_id',currentUser.id).order('due_day');
+    fixedExpenses = freshFixed||[];
+
+    renderDash();
+
+  }catch(e){
+    showMsg('Error saving setup','var(--a4)');
+    document.getElementById('ob-next').textContent='Finish setup ✓';
+    document.getElementById('ob-next').disabled=false;
+    console.error(e);
+  }
+}
+
+// Event listeners for onboarding
+document.getElementById('ob-next').addEventListener('click', obNext);
+document.getElementById('ob-back').addEventListener('click', ()=>{
+  if(obStep>0){obStep--;renderObStep();}
+});
+document.addEventListener('click', function(e){
+  if(e.target.id==='ob-add-fixed'){
+    obData.fixedExpenses.push({name:'',icon:'📄',amount:0,currency:'COP',due_day:null});
+    renderObStep();
+  }
+  if(e.target.id==='ob-add-spending'){
+    obData.spendingEnvelopes.push({name:'',icon:'📦',amount:0,currency:'COP'});
+    renderObStep();
+  }
+});
 // ── AUTH ──────────────────────────────────────────────────────────────────
 async function initAuth(){
   document.getElementById('auth-screen').style.display='flex';
@@ -939,10 +1255,10 @@ async function loadApp(user){
   BUDGET=profile?.budget||4200000;
   document.getElementById('user-name').textContent=userName;
   document.getElementById('user-av').textContent=userName.slice(0,2).toUpperCase();
+  document.getElementById('mob-user-name').textContent=userName;
+  document.getElementById('mob-user-av').textContent=userName.slice(0,2).toUpperCase();
   document.getElementById('settings-name').value=userName;
   document.getElementById('settings-email').textContent=user.email;
-  document.getElementById('settings-budget').value=BUDGET;
-
   // Categories
   const {data:dbCats}=await sb.from('categories').select('*').eq('user_id',user.id);
   if(!dbCats||!dbCats.length){
@@ -977,12 +1293,27 @@ async function loadApp(user){
     amountCOP:s.currency==='USD'?s.amount*currentTRM:s.amount,
     freqForCalc:s.freq==='weekly-day'?'weekly':'monthly'
   }));
-
-  document.getElementById('app-loading').style.display='none';
+// Envelopes
+  const {data:dbEnvs} = await sb.from('envelopes').select('*').eq('user_id',user.id).order('created_at');
+  envelopes = (dbEnvs||[]).map(e=>({...e, spent:0}));
+  // Calculate envelope spending from transactions
+  txs.forEach(t=>{
+    if((t.type==='expense'||t.amount<0) && t.envelope_id){
+      const env = envelopes.find(e=>e.id===t.envelope_id);
+      if(env) env.spent += Math.abs(t.amount);
+    }
+  });
+  // Fixed expenses
+  const {data:dbFixed} = await sb.from('fixed_expenses').select('*').eq('user_id',user.id).order('due_day');
+  fixedExpenses = dbFixed||[];
+document.getElementById('app-loading').style.display='none';
   document.getElementById('app-shell').classList.add('ready');
-  if(window.innerWidth <= 900) document.getElementById('mob-menu-btn').style.display='flex';
+  document.getElementById('mob-menu-btn').style.display='flex';
   pulseShown=false;
-  goto('dashboard');
+  await checkOnboarding();
+  if(document.getElementById('onboarding').style.display!=='block'){
+    goto('dashboard');
+  }
 }
 
 // ── AI PROXY ──────────────────────────────────────────────────────────────
@@ -997,7 +1328,8 @@ async function callAI(messages, system='', max_tokens=500){
 }
 
 function buildContext(){
-  const spent=cats.reduce((a,c)=>a+c.spent,0);
+  const spent = envelopes.reduce((a,e)=>a+(e.spent||0), 0);
+  const BUDGET = envelopes.reduce((a,e)=>a+toCOP(e.monthly_allocation, e.currency), 0);
   const weekly=incomeSrc.reduce((a,s)=>a+toWeekly(s.amount,s.freq),0);
   const upcoming=allMilestonesSorted().slice(0,3);
   const totalCOP=totalBalanceCOP();
@@ -1126,7 +1458,10 @@ function goto(page){
   else if(page==='goals')        renderGoals();
   else if(page==='planner')      {renderIncomes();renderPlanGoalSummary();}
   else if(page==='reports')      renderReports();
+ else if(page==='settings')     renderSettingsEnvelopes();
+  else if(page==='shortcuts')    renderShortcuts();
   if(incomeSrc.length) checkPaydays();
+  checkDueBills();
 }
 
 // ── DASHBOARD ─────────────────────────────────────────────────────────────
@@ -1142,15 +1477,27 @@ function renderDash(){
     `<div class="sc cy"><div class="sl">Next payment due</div><div class="sv" id="next-due-amt">—</div><div class="ss" id="next-due-name">—</div></div>`;
   const upcoming=allMilestonesSorted();
   if(upcoming.length){const next=upcoming[0];document.getElementById('next-due-amt').textContent=fmt(next.amount);document.getElementById('next-due-name').textContent=`${next.goalIcon} ${next.name} · ${next.days}d`;}
-  document.getElementById('d-cats').innerHTML=cats.map(c=>{
-    const p=Math.min(100,Math.round(c.spent/c.budget_limit*100)),ov=p>=100;
-    return `<div class="cr-row"><div class="ci" style="background:${c.color}22">${c.icon}</div>`+
-      `<div class="cinfo"><div style="display:flex;align-items:center;justify-content:space-between"><div style="font-size:13px;font-weight:500">${c.name}</div>`+
-      `<div style="display:flex;align-items:center;gap:8px"><span style="font-size:11px;color:${ov?'var(--a4)':'var(--t2)'}">${p}%${ov?' · over!':''}</span>`+
-      `<button class="ec-btn" data-id="${c.id}" style="background:none;border:none;color:var(--t2);cursor:pointer;font-size:11px;padding:2px 4px">✏️</button></div></div>`+
-      `<div class="bw"><div class="bar" style="width:${p}%;background:${ov?'var(--a4)':c.color}"></div></div></div>`+
-      `<div class="camp"><div class="csp">${fmt(c.spent)}</div><div class="clm">of ${fmt(c.budget_limit)}</div></div></div>`;
-  }).join('');
+  const spendingEnvs = envelopes.filter(e=>e.type==='spending'||e.type==='fixed');
+  document.getElementById('d-cats').innerHTML = !spendingEnvs.length
+    ? `<div style="padding:20px;text-align:center;color:var(--t2);font-size:12px">No envelopes set up yet</div>`
+    : spendingEnvs.map(e=>{
+        const p=Math.min(100,Math.round((e.spent||0)/e.monthly_allocation*100)),ov=p>=100;
+        const col = e.type==='fixed'?'var(--a3)':'var(--a2)';
+        return `<div class="cr-row">
+          <div class="ci" style="background:${col}22">${e.icon}</div>
+          <div class="cinfo">
+            <div style="display:flex;align-items:center;justify-content:space-between">
+              <div style="font-size:13px;font-weight:500">${e.name}</div>
+              <div style="display:flex;align-items:center;gap:8px">
+                <span style="font-size:10px;padding:2px 6px;border-radius:20px;background:${e.type==='fixed'?'rgba(245,196,102,.12)':'rgba(102,245,200,.08)'};color:${col}">${e.type}</span>
+                <span style="font-size:11px;color:${ov?'var(--a4)':'var(--t2)'}">${p}%${ov?' · over!':''}</span>
+              </div>
+            </div>
+            <div class="bw"><div class="bar" style="width:${p}%;background:${ov?'var(--a4)':col}"></div></div>
+          </div>
+          <div class="camp"><div class="csp">${fmt(e.spent||0)}</div><div class="clm">of ${fmt(e.monthly_allocation)}/mo</div></div>
+        </div>`;
+      }).join('');
   document.getElementById('d-txs').innerHTML=txs.slice(0,5).map(tx=>{
     const c=catById(tx.category_id);const isInc=tx.type==='income'||tx.amount>0;
     return `<div class="tx-item"><div class="txi" style="background:${isInc?'rgba(184,245,102,.15)':tx.color||c.color+'22'}">${tx.icon||c.icon}</div>`+
@@ -1613,9 +1960,113 @@ async function confirmPayday(sid){
     await sb.from('accounts').update({balance:acc.balance}).eq('id',accId);
   }
 
+  closePaydayModal();
+  const notif = document.getElementById('payday-side-notif');
+  if(notif) notif.remove();
+
   renderCurrent();
-  checkPaydays();
   showMsg(`${s.label} logged ✓`);
+  showAISplitModal(s, amtCOP);
+}
+async function showAISplitModal(s, amtCOP){
+  const spendingEnvs = envelopes.filter(e=>e.type==='spending'||e.type==='fixed');
+  if(!spendingEnvs.length) return;
+
+  const mo = document.createElement('div');
+  mo.id = 'split-modal';
+  mo.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.75);backdrop-filter:blur(4px);z-index:800;display:flex;align-items:center;justify-content:center;';
+  mo.innerHTML = `
+    <div style="background:var(--s);border:1px solid var(--bd);border-radius:18px;padding:26px;width:480px;max-width:94vw;max-height:90vh;overflow-y:auto;">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">
+        <div style="width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,rgba(102,245,200,.2),rgba(196,102,245,.2));border:1px solid rgba(102,245,200,.25);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">✦</div>
+        <div>
+          <div style="font-size:11px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;color:var(--a2);margin-bottom:3px">AI Split Suggestion</div>
+          <div style="font-family:'DM Serif Display',serif;font-size:18px;letter-spacing:-.5px">How to split ${fmt(amtCOP)}</div>
+        </div>
+      </div>
+      <div id="split-content" style="display:flex;flex-direction:column;align-items:center;gap:12px;padding:20px 0">
+        <div style="width:28px;height:28px;border:2px solid var(--bd);border-top-color:var(--a2);border-radius:50%;animation:spin .8s linear infinite"></div>
+        <div style="font-size:13px;color:var(--t2)">Analyzing your envelopes…</div>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:4px">
+        <button id="split-dismiss" style="flex:1;padding:12px;border-radius:10px;background:transparent;border:1px solid var(--bd);color:var(--t2);font-family:'Sora',sans-serif;font-size:13px;cursor:pointer;">Dismiss</button>
+        <button id="split-confirm" style="flex:2;padding:12px;border-radius:10px;background:var(--a);border:none;color:#0d0f0e;font-family:'Sora',sans-serif;font-size:13px;font-weight:600;cursor:pointer;display:none">Apply split ✓</button>
+      </div>
+    </div>`;
+  document.body.appendChild(mo);
+  document.getElementById('split-dismiss').onclick = ()=>mo.remove();
+
+  try{
+    const upcoming = allMilestonesSorted().slice(0,3);
+    const savingsEnvs = envelopes.filter(e=>e.type==='savings');
+    const prompt = `You are a financial advisor for a Colombian user. They just received ${fmt(amtCOP)} COP.
+
+Their envelopes:
+${spendingEnvs.map(e=>`- ${e.icon} ${e.name} (${e.type}): allocated ${fmt(e.monthly_allocation)}/month, spent so far this month: ${fmt(e.spent||0)}`).join('\n')}
+${savingsEnvs.length?'\nSavings envelopes:\n'+savingsEnvs.map(e=>`- ${e.icon} ${e.name}: ${fmt(e.monthly_allocation)}/month`).join('\n'):''}
+
+Upcoming goal payments:
+${upcoming.length ? upcoming.map(m=>`- ${m.goalIcon} ${m.name}: ${fmt(m.amount)} due in ${m.days} days`).join('\n') : 'None'}
+
+Current total balance after deposit: ${fmt(totalBalanceCOP())} COP
+
+Suggest how to split ${fmt(amtCOP)} across their envelopes. Consider what they still need to allocate this month (monthly_allocation minus already spent). Prioritize urgent deadlines.
+Respond ONLY in JSON: {"splits":[{"envelopeName":"name","envelopeIcon":"icon","amount":123456,"reasoning":"one short sentence"}],"unallocated":123456,"summary":"2 sentences max"}`;
+
+    const d = await callAI([{role:'user',content:prompt}],'',1000);
+    let raw = (d.content?.[0]?.text||'{}').replace(/```json\n?/g,'').replace(/```\n?/g,'').trim();
+    const res = JSON.parse(raw);
+
+    const splits = res.splits.map(split=>{
+      const env = envelopes.find(e=>e.name===split.envelopeName);
+      return {...split, envelopeId: env?.id||null};
+    });
+
+    const total = splits.reduce((s,x)=>s+x.amount,0);
+    const unallocated = amtCOP - total;
+
+    document.getElementById('split-content').innerHTML = `
+      <div style="width:100%">
+        <div style="font-size:12px;color:var(--t2);margin-bottom:14px;padding:10px 14px;background:rgba(102,245,200,.06);border:1px solid rgba(102,245,200,.2);border-radius:8px;line-height:1.6">${res.summary}</div>
+        ${splits.map((split,i)=>`
+          <div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--bd)">
+            <div style="font-size:20px;width:28px;text-align:center">${split.envelopeIcon||'📦'}</div>
+            <div style="flex:1">
+              <div style="font-size:13px;font-weight:500">${split.envelopeName}</div>
+              <div style="font-size:11px;color:var(--t2);margin-top:2px">${split.reasoning}</div>
+            </div>
+            <input type="number" value="${split.amount}" data-idx="${i}" class="split-amt-input"
+              style="width:110px;background:var(--s2);border:1px solid var(--bd);border-radius:8px;padding:7px 10px;color:var(--a);font-family:'DM Mono',monospace;font-size:13px;font-weight:500;outline:none;text-align:right"/>
+          </div>`).join('')}
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;margin-top:4px">
+          <div style="font-size:12px;color:var(--t2)">Unallocated</div>
+          <div id="split-unallocated" style="font-family:'DM Mono',monospace;font-size:14px;font-weight:500;color:${unallocated>=0?'var(--a)':'var(--a4)'}">${fmt(unallocated)}</div>
+        </div>
+      </div>`;
+
+    mo._splits = splits;
+    mo._amtCOP = amtCOP;
+
+    document.querySelectorAll('.split-amt-input').forEach((inp,idx)=>{
+      inp.addEventListener('input',()=>{
+        const total = Array.from(document.querySelectorAll('.split-amt-input')).reduce((s,i)=>s+(+i.value||0),0);
+        const rem = amtCOP - total;
+        document.getElementById('split-unallocated').textContent = fmt(rem);
+        document.getElementById('split-unallocated').style.color = rem>=0?'var(--a)':'var(--a4)';
+        if(mo._splits[idx]) mo._splits[idx].amount = +inp.value||0;
+      });
+    });
+
+    document.getElementById('split-confirm').style.display='block';
+    document.getElementById('split-confirm').onclick = ()=>{
+      showMsg('Split noted ✓');
+      mo.remove();
+    };
+
+  }catch(err){
+    document.getElementById('split-content').innerHTML = `<div style="font-size:13px;color:var(--t2);text-align:center;padding:20px">Could not generate suggestion.<br>Allocate manually in Settings → Envelopes.</div>`;
+    console.error(err);
+  }
 }
 function renderPlanGoalSummary(){
   if(!goals.length){document.getElementById('pl-goal-summary').innerHTML=`<div style="font-size:12px;color:var(--t2);padding:8px 0">No goals yet.</div>`;return;}
@@ -1665,13 +2116,80 @@ async function askAI(){
 
 // ── REPORTS ───────────────────────────────────────────────────────────────
 function renderReports(){
-  const months=['Jan 2026','Feb 2026','Mar 2026','Apr 2026'];
+  const now = new Date();
+  const months = [];
+  for(let i=3;i>=0;i--){
+    const d = new Date(now.getFullYear(), now.getMonth()-i, 1);
+    months.push(d.toLocaleDateString('en-US',{month:'short',year:'numeric'}));
+  }
+  if(!months.includes(repMonth)) repMonth = months[months.length-1];
   document.getElementById('month-tabs').innerHTML=months.map(m=>`<button class="mchip${m===repMonth?' active':''}" data-m="${m}">${m}</button>`).join('');
-  const spent=cats.reduce((a,c)=>a+c.spent,0);
-  document.getElementById('rep-compare').innerHTML=cats.map(c=>{const prev=Math.round(c.spent*(.7+Math.random()*.5)),mx=Math.max(c.budget_limit,c.spent,prev);return `<div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--bd)"><div style="font-size:13px;flex:1">${c.icon} ${c.name.split(' ')[0]}</div><div style="display:flex;flex-direction:column;gap:4px;width:100px"><div style="display:flex;align-items:center;gap:6px"><div style="height:5px;border-radius:2px;width:${Math.round(c.spent/mx*100)}px;background:${c.color}"></div><div style="font-size:9px;color:${c.color}">Now</div></div><div style="display:flex;align-items:center;gap:6px"><div style="height:5px;border-radius:2px;width:${Math.round(prev/mx*100)}px;background:var(--bd)"></div><div style="font-size:9px;color:var(--t2)">Prev</div></div></div><div style="font-family:'DM Mono',monospace;font-size:12px;min-width:55px;text-align:right">${fmt(c.spent)}</div></div>`;}).join('');
-  document.getElementById('rep-summary').innerHTML=[{l:'Total income',v:fmt(BUDGET),c:'var(--a)',i:'💰'},{l:'Total spent',v:fmt(spent),c:'var(--a4)',i:'💸'},{l:'Net savings',v:fmt(BUDGET-spent),c:'var(--a2)',i:'🏦'},{l:'Savings rate',v:Math.round((BUDGET-spent)/BUDGET*100)+'%',c:'var(--a3)',i:'📊'}].map(r=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--bd)"><div style="display:flex;align-items:center;gap:8px"><span>${r.i}</span><span style="font-size:13px;color:var(--t2)">${r.l}</span></div><span style="font-family:'DM Mono',monospace;font-size:14px;font-weight:500;color:${r.c}">${r.v}</span></div>`).join('');
-  const top=[...cats].sort((a,b)=>b.spent-a.spent).slice(0,3);
-  document.getElementById('rep-top').innerHTML=`<div style="display:flex;gap:12px;flex-wrap:wrap">`+top.map((c,i)=>`<div style="flex:1;min-width:140px;background:var(--s2);border:1px solid var(--bd);border-radius:12px;padding:16px"><div style="font-size:11px;color:var(--t2);margin-bottom:8px">#${i+1}</div><div style="font-size:20px;margin-bottom:6px">${c.icon}</div><div style="font-size:13px;font-weight:600;margin-bottom:4px">${c.name}</div><div style="font-family:'DM Mono',monospace;font-size:18px;font-weight:500;color:${c.color}">${fmt(c.spent)}</div><div style="height:4px;background:var(--bd);border-radius:2px;margin-top:10px;overflow:hidden"><div style="height:100%;width:${Math.round(c.spent/c.budget_limit*100)}%;background:${c.color}"></div></div></div>`).join('')+`</div>`;
+
+  const totalBudget = envelopes.reduce((a,e)=>a+toCOP(e.monthly_allocation,e.currency),0);
+  const totalSpent = envelopes.reduce((a,e)=>a+(e.spent||0),0);
+  const totalIncome = txs.filter(t=>t.type==='income'||t.amount>0).reduce((a,t)=>a+t.amount,0);
+
+  // Spending vs budget per envelope
+  const spendingEnvs = envelopes.filter(e=>e.type==='spending'||e.type==='fixed');
+  document.getElementById('rep-compare').innerHTML = !spendingEnvs.length
+    ? `<div style="padding:20px;text-align:center;color:var(--t2);font-size:12px">No envelopes yet</div>`
+    : spendingEnvs.map(e=>{
+        const spent = e.spent||0;
+        const alloc = e.monthly_allocation||1;
+        const mx = Math.max(alloc, spent);
+        const col = e.type==='fixed'?'var(--a3)':'var(--a2)';
+        return `<div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--bd)">
+          <div style="font-size:16px;width:24px;text-align:center">${e.icon}</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:12px;font-weight:500;margin-bottom:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${e.name}</div>
+            <div style="display:flex;flex-direction:column;gap:3px">
+              <div style="display:flex;align-items:center;gap:6px">
+                <div style="height:5px;border-radius:2px;width:${Math.round(spent/mx*100)}px;max-width:120px;background:${col}"></div>
+                <div style="font-size:9px;color:${col}">spent</div>
+              </div>
+              <div style="display:flex;align-items:center;gap:6px">
+                <div style="height:5px;border-radius:2px;width:${Math.round(alloc/mx*100)}px;max-width:120px;background:var(--bd)"></div>
+                <div style="font-size:9px;color:var(--t2)">budget</div>
+              </div>
+            </div>
+          </div>
+          <div style="font-family:'DM Mono',monospace;font-size:12px;text-align:right;min-width:80px">
+            <div style="color:${col}">${fmt(spent)}</div>
+            <div style="color:var(--t2);font-size:10px">of ${fmt(alloc)}</div>
+          </div>
+        </div>`;
+      }).join('');
+
+  // Monthly summary
+  document.getElementById('rep-summary').innerHTML=[
+    {l:'Total income',v:fmt(totalIncome),c:'var(--a)',i:'💰'},
+    {l:'Total spent',v:fmt(totalSpent),c:'var(--a4)',i:'💸'},
+    {l:'Net savings',v:fmt(totalIncome-totalSpent),c:'var(--a2)',i:'🏦'},
+    {l:'Budget allocated',v:fmt(totalBudget),c:'var(--a3)',i:'📊'},
+    {l:'Budget used',v:totalBudget>0?Math.round(totalSpent/totalBudget*100)+'%':'—',c:'var(--t2)',i:'📈'}
+  ].map(r=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--bd)">
+    <div style="display:flex;align-items:center;gap:8px"><span>${r.i}</span><span style="font-size:13px;color:var(--t2)">${r.l}</span></div>
+    <span style="font-family:'DM Mono',monospace;font-size:14px;font-weight:500;color:${r.c}">${r.v}</span>
+  </div>`).join('');
+
+  // Top spending envelopes
+  const top = [...spendingEnvs].sort((a,b)=>(b.spent||0)-(a.spent||0)).slice(0,3);
+  document.getElementById('rep-top').innerHTML = !top.length
+    ? `<div style="padding:20px;text-align:center;color:var(--t2);font-size:12px">No spending data yet</div>`
+    : `<div style="display:flex;gap:12px;flex-wrap:wrap">`+top.map((e,i)=>{
+        const col = e.type==='fixed'?'var(--a3)':'var(--a2)';
+        const pct = Math.round((e.spent||0)/e.monthly_allocation*100);
+        return `<div style="flex:1;min-width:140px;background:var(--s2);border:1px solid var(--bd);border-radius:12px;padding:16px">
+          <div style="font-size:11px;color:var(--t2);margin-bottom:8px">#${i+1}</div>
+          <div style="font-size:20px;margin-bottom:6px">${e.icon}</div>
+          <div style="font-size:13px;font-weight:600;margin-bottom:4px">${e.name}</div>
+          <div style="font-family:'DM Mono',monospace;font-size:18px;font-weight:500;color:${col}">${fmt(e.spent||0)}</div>
+          <div style="font-size:11px;color:var(--t2);margin-top:2px">${pct}% of ${fmt(e.monthly_allocation)}</div>
+          <div style="height:4px;background:var(--bd);border-radius:2px;margin-top:10px;overflow:hidden">
+            <div style="height:100%;width:${Math.min(100,pct)}%;background:${col}"></div>
+          </div>
+        </div>`;
+      }).join('')+`</div>`;
 }
 
 // ── DB OPERATIONS ─────────────────────────────────────────────────────────
@@ -1686,14 +2204,16 @@ async function saveTx(){
   const amtCOP = currency==='USD' ? amtRaw*currentTRM : amtRaw;
   const isIncome = txType==='income';
   const cat = isIncome ? null : catById(txSelCat);
+  const selEnv = !isIncome ? envelopes.find(e=>e.id===txSelEnv) : null;
   const newTx={
     user_id:currentUser.id,
     name:desc,
     amount:isIncome?amtCOP:-amtCOP,
     category_id:isIncome?null:txSelCat,
+    envelope_id:isIncome?null:(txSelEnv||null),
     account_id:accountId||null,
-    icon:isIncome?'💰':cat.icon,
-    color:isIncome?'#b8f566':cat.color,
+    icon:isIncome?'💰':(selEnv?.icon||cat.icon),
+    color:isIncome?'#b8f566':(cat.color),
     date,
     type:txType,
     original_amount:amtRaw,
@@ -1703,6 +2223,7 @@ async function saveTx(){
   if(error){showMsg('Error saving transaction','var(--a4)');console.error(error);return;}
   txs.unshift(data);
   if(!isIncome&&cat) cat.spent+=amtCOP;
+  if(!isIncome&&selEnv) selEnv.spent=(selEnv.spent||0)+amtCOP;
   // Update account balance
   if(accountId){
     const acc=accById(accountId);
@@ -1828,6 +2349,16 @@ async function adjustAccountBalance(accId, delta, isDeposit){
 
 // ── MODAL HELPERS ─────────────────────────────────────────────────────────
 function makeCatGrid(gridId,sel){document.getElementById(gridId).innerHTML=cats.map(c=>`<button class="cbtn${c.id===sel?' sel':''}" data-cid="${c.id}" data-grid="${gridId}"><span>${c.icon}</span><span>${c.name.split(' ')[0]}</span></button>`).join('');}
+function makeEnvelopeGrid(){
+  const spendingEnvs = envelopes.filter(e=>e.type==='spending');
+  document.getElementById('tx-cgrid').innerHTML = spendingEnvs.length
+    ? spendingEnvs.map(e=>`
+        <button class="cbtn${txSelEnv===e.id?' sel':''}" data-eid="${e.id}" data-grid="tx-cgrid">
+          <span>${e.icon}</span>
+          <span>${e.name.split(' ')[0]}</span>
+        </button>`).join('')
+    : `<div style="font-size:12px;color:var(--t2);padding:8px 0;grid-column:1/-1">No spending envelopes found</div>`;
+}
 function renderMsModal(){const list=document.getElementById('ms-list');if(!pendingMilestones.length){list.innerHTML=`<div style="font-size:12px;color:var(--t2);padding:8px 0">No milestones yet.</div>`;return;}list.innerHTML=pendingMilestones.map((m,i)=>`<div class="ms-modal-item"><div style="flex:1"><div style="font-size:12px;font-weight:500;margin-bottom:4px">${m.name}</div><div style="font-size:11px;color:var(--t2)">${fmtDate(m.date)} · ${fmt(m.amount)}${m.refundable?' · refundable':''}</div></div><button class="ms-del" data-i="${i}" style="background:none;border:none;color:var(--a4);cursor:pointer;font-size:12px;padding:2px 6px">✕</button></div>`).join('');}
 
 function populateAccountSelect(){
@@ -1837,10 +2368,11 @@ function populateAccountSelect(){
 
 function openTxModal(){
   txType='expense';txSelCat='food';
+  txSelEnv = envelopes.filter(e=>e.type==='spending')[0]?.id||null;
   document.getElementById('tx-btn-expense').classList.add('active');
   document.getElementById('tx-btn-income').classList.remove('active');
   document.getElementById('tx-cat-section').style.display='block';
-  makeCatGrid('tx-cgrid','food');
+  makeEnvelopeGrid();
   populateAccountSelect();
   document.getElementById('tx-amt').value='';
   document.getElementById('tx-desc').value='';
@@ -1961,15 +2493,165 @@ function closeAccountDrawer(){
   document.getElementById('acc-drawer').classList.remove('open');
   drawerAccId = null;
 }
-function renderCurrent(){const p=document.querySelector('.page.active')?.id?.replace('pg-','');if(p==='dashboard')renderDash();else if(p==='transactions')renderTxPage();else if(p==='accounts')renderAccounts();else if(p==='goals')renderGoals();else if(p==='reports')renderReports();}
+function renderCurrent(){const p=document.querySelector('.page.active')?.id?.replace('pg-','');if(p==='dashboard')renderDash();else if(p==='transactions')renderTxPage();else if(p==='accounts')renderAccounts();else if(p==='goals')renderGoals();else if(p==='reports')renderReports();else if(p==='settings')renderSettingsEnvelopes();}
 
+function renderSettingsEnvelopes(){
+  const el = document.getElementById('settings-envelopes');
+  if(!el) return;
+  if(!envelopes.length){el.innerHTML=`<div style="font-size:12px;color:var(--t2);padding:8px 0">No envelopes yet. Complete the setup wizard or add one below.</div>`;return;}
+  el.innerHTML=`<div class="ss-sec">`+envelopes.map(e=>{
+    const typeColor = e.type==='fixed'?'var(--a3)':e.type==='savings'?'var(--a5)':'var(--a2)';
+    return `<div class="ss-row">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div style="font-size:18px">${e.icon}</div>
+        <div>
+          <div style="font-size:13px;font-weight:500">${e.name}</div>
+          <div style="font-size:11px;color:var(--t2);margin-top:2px">
+            <span style="color:${typeColor}">${e.type}</span> · ${fmt(e.monthly_allocation)}/mo
+          </div>
+        </div>
+      </div>
+      <div style="display:flex;gap:6px">
+        <button class="env-edit" data-eid="${e.id}" style="background:none;border:none;color:var(--t2);cursor:pointer;font-size:12px;padding:4px 8px">✏️</button>
+        <button class="env-del" data-eid="${e.id}" style="background:none;border:none;color:var(--a4);cursor:pointer;font-size:12px;padding:4px 8px">✕</button>
+      </div>
+    </div>`;
+  }).join('')+`</div>`;
+}
+// ── FIXED BILL NOTIFICATIONS ──────────────────────────────────────────────
+function checkDueBills(){
+  const today = new Date();
+  const dayOfMonth = today.getDate();
+  const todayStr = today.toISOString().slice(0,10);
+
+  // Bills due today
+  const dueBills = fixedExpenses.filter(f => f.due_day === dayOfMonth);
+  if(!dueBills.length) return;
+
+  // Filter out already paid today
+  const alreadyPaid = txs.filter(t =>
+    t.date === todayStr &&
+    t.type === 'expense' &&
+    t.amount < 0
+  );
+  const unpaid = dueBills.filter(f =>
+    !alreadyPaid.some(t => t.name === f.name)
+  );
+  if(!unpaid.length) return;
+
+  // Show bill due modal
+  showBillDueModal(unpaid);
+}
+
+let billQueue = [];
+let billIndex = 0;
+
+function showBillDueModal(bills){
+  billQueue = bills;
+  billIndex = 0;
+  renderBillModal();
+  document.getElementById('payday-modal-overlay').classList.add('open');
+}
+
+function renderBillModal(){
+  const f = billQueue[billIndex];
+  if(!f){ closePaydayModal(); return; }
+  const acc = accounts.find(a=>a.id===f.account_id);
+  const displayAmt = f.currency==='USD' ? `$${f.amount} USD` : fmt(f.amount);
+  const remaining = billQueue.length - billIndex - 1;
+
+  document.getElementById('payday-modal-box').innerHTML = `
+    <div style="display:flex;align-items:center;gap:14px;margin-bottom:20px">
+      <div style="width:48px;height:48px;border-radius:14px;background:rgba(245,196,102,.15);display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0">${f.icon||'📄'}</div>
+      <div>
+        <div style="font-size:11px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;color:var(--a3);margin-bottom:4px">Bill due today!</div>
+        <div style="font-family:'DM Serif Display',serif;font-size:20px;letter-spacing:-.5px">${f.name}</div>
+      </div>
+    </div>
+    <div style="background:var(--s2);border:1px solid var(--bd);border-radius:12px;padding:16px;margin-bottom:20px">
+      <div style="font-size:12px;color:var(--t2);margin-bottom:4px">Amount due</div>
+      <div style="font-family:'DM Mono',monospace;font-size:26px;font-weight:500;letter-spacing:-1px;color:var(--a3)">${displayAmt}</div>
+      ${acc ? `<div style="font-size:12px;color:var(--t2);margin-top:10px">← from ${acc.icon} ${acc.name}</div>` : '<div style="font-size:12px;color:var(--t2);margin-top:10px">No account linked</div>'}
+    </div>
+    ${remaining > 0 ? `<div style="font-size:11px;color:var(--t2);text-align:center;margin-bottom:14px">${remaining} more bill${remaining>1?'s':''} due today</div>` : ''}
+    <div style="display:flex;gap:10px">
+      <button id="bill-modal-later" style="flex:1;padding:13px;border-radius:10px;background:transparent;border:1px solid var(--bd);color:var(--t2);font-family:'Sora',sans-serif;font-size:13px;cursor:pointer;">Later</button>
+      <button id="bill-modal-confirm" data-fid="${f.id}" style="flex:2;padding:13px;border-radius:10px;background:var(--a3);border:none;color:#0d0f0e;font-family:'Sora',sans-serif;font-size:13px;font-weight:600;cursor:pointer;">Pay it ✓</button>
+    </div>`;
+
+  document.getElementById('bill-modal-later').onclick = ()=>{
+    billIndex++;
+    if(billIndex >= billQueue.length) closePaydayModal();
+    else renderBillModal();
+  };
+
+  document.getElementById('bill-modal-confirm').onclick = async ()=>{
+    await confirmBillPayment(f.id);
+    billIndex++;
+    if(billIndex >= billQueue.length) closePaydayModal();
+    else renderBillModal();
+  };
+}
+
+async function confirmBillPayment(fid){
+  const f = fixedExpenses.find(x=>x.id===fid);
+  if(!f) return;
+  const acc = accounts.find(a=>a.id===f.account_id);
+  const amtCOP = f.currency==='USD' ? f.amount*currentTRM : f.amount;
+
+  const newTx = {
+    user_id: currentUser.id,
+    name: f.name,
+    amount: -amtCOP,
+    category_id: null,
+    envelope_id: envelopes.find(e=>e.name===f.name&&e.type==='fixed')?.id||null,
+    account_id: f.account_id||null,
+    icon: f.icon||'📄',
+    color: '#f5c466',
+    date: new Date().toISOString().slice(0,10),
+    type: 'expense',
+    original_amount: f.amount,
+    original_currency: f.currency
+  };
+
+  const {data, error} = await sb.from('transactions').insert(newTx).select().single();
+  if(error){showMsg('Error logging bill','var(--a4)');console.error(error);return;}
+  txs.unshift(data);
+
+  // Deduct from account
+  if(acc){
+    acc.balance = acc.currency==='COP' ? acc.balance-amtCOP : acc.balance-f.amount;
+    acc.balance = Math.round(acc.currency==='COP' ? acc.balance : acc.balance*100)/100;
+    await sb.from('accounts').update({balance:acc.balance}).eq('id',acc.id);
+  }
+
+  // Update envelope spent
+  const env = envelopes.find(e=>e.name===f.name&&e.type==='fixed');
+  if(env) env.spent = (env.spent||0) + amtCOP;
+
+  renderCurrent();
+  showMsg(`${f.name} paid ✓`);
+}
+function renderShortcuts(){
+  const spendingEnvs = envelopes.filter(e=>e.type==='spending');
+  const listEl = document.getElementById('shortcut-envelope-list');
+  const linkEl = document.getElementById('shortcut-deep-link');
+  if(listEl){
+    listEl.textContent = spendingEnvs.length
+      ? 'Options: '+spendingEnvs.map(e=>e.name).join(', ')+'.'
+      : 'Set up your spending envelopes first in Settings.';
+  }
+  if(linkEl){
+    linkEl.textContent = `plata://log?amount=[Provided Input]&env=[Chosen Item]`;
+  }
+}
 // ── EVENTS ────────────────────────────────────────────────────────────────
 document.addEventListener('click',function(e){
   const t=e.target;
   if(t.id==='tab-login'){authMode='login';document.getElementById('tab-login').classList.add('active');document.getElementById('tab-signup').classList.remove('active');document.getElementById('auth-submit').textContent='Sign in';document.getElementById('auth-name-field').style.display='none';return;}
   if(t.id==='tab-signup'){authMode='signup';document.getElementById('tab-signup').classList.add('active');document.getElementById('tab-login').classList.remove('active');document.getElementById('auth-submit').textContent='Create account';document.getElementById('auth-name-field').style.display='flex';return;}
   if(t.id==='auth-submit'){doAuth();return;}
-  if(t.id==='b-signout'||t.id==='b-signout2'){signOut();return;}
+  if(t.id==='b-signout'||t.id==='b-signout2'||t.id==='b-signout3'){signOut();return;}
   const ni=t.closest('.ni');if(ni&&ni.dataset.p){closeAllMenus();closeMobMenu();goto(ni.dataset.p);return;}
   const id=t.id;
   if(id==='b-new-tx'||id==='b-add-spend'||id==='b-new-tx2'){openTxModal();return;}
@@ -1979,6 +2661,7 @@ document.addEventListener('click',function(e){
   if(id==='b-manage-goals'||id==='b-pl-goals'){goto('goals');return;}
   if(id==='b-goto-planner'){goto('planner');return;}
   if(id==='b-all-tx'){goto('transactions');return;}
+  if(id==='b-manage-envelopes'){goto('settings');return;}
 if(id==='b-add-income'){openIncomeModal();return;}
 if(id==='b-inc-cancel'){closeMo('mo-income');return;}
 if(id==='b-inc-save'){saveIncomeSource();return;}  if(id==='b-run-planner'){runPlanner();return;}
@@ -2014,8 +2697,13 @@ if(id==='b-inc-save'){saveIncomeSource();return;}  if(id==='b-run-planner'){runP
   if(id==='b-acc-cancel'){closeMo('mo-account');return;}
   if(id==='b-acc-save'){saveAccount();return;}
   if(t.classList.contains('toggle')){t.classList.toggle('on');return;}
-  const cbtn=t.closest('.cbtn');if(cbtn){const grid=cbtn.dataset.grid,cid=cbtn.dataset.cid;if(grid==='tx-cgrid'){txSelCat=cid;makeCatGrid('tx-cgrid',cid);}else if(grid==='etx-cgrid'){etxSelCat=cid;makeCatGrid('etx-cgrid',cid);}return;}
-  const ecb=t.closest('.ec-btn');if(ecb){openEditCat(ecb.dataset.id);return;}
+const cbtn=t.closest('.cbtn');if(cbtn){
+    const grid=cbtn.dataset.grid;
+    if(grid==='tx-cgrid'&&cbtn.dataset.eid){txSelEnv=cbtn.dataset.eid;makeEnvelopeGrid();}
+    else if(grid==='tx-cgrid'){txSelCat=cbtn.dataset.cid;makeCatGrid('tx-cgrid',cbtn.dataset.cid);}
+    else if(grid==='etx-cgrid'){etxSelCat=cbtn.dataset.cid;makeCatGrid('etx-cgrid',cbtn.dataset.cid);}
+    return;
+  }  const ecb=t.closest('.ec-btn');if(ecb){openEditCat(ecb.dataset.id);return;}
   const txRow=t.closest('.tx-full');if(txRow){openEditTx(txRow.dataset.rid);return;}
   const gmb=t.closest('.gmb');if(gmb){const gid=gmb.dataset.gid,menu=document.getElementById('gm-'+gid),was=menu.classList.contains('open');closeAllMenus();if(!was)menu.classList.add('open');return;}
   const gas=t.closest('.gas');if(gas){closeAllMenus();openAddSavings(gas.dataset.gid);return;}
@@ -2067,13 +2755,45 @@ if(pdDismiss){
   pdDismiss.closest('div').remove();
   return;
 }
+// Envelope management
+const envEdit=t.closest('.env-edit');
+if(envEdit){
+  const env=envelopes.find(e=>e.id===envEdit.dataset.eid);
+  if(!env) return;
+  const name=prompt('Envelope name:',env.name);if(name===null)return;
+  const alloc=parseFloat(prompt('Monthly allocation (COP):',env.monthly_allocation));if(!alloc||isNaN(alloc))return;
+  sb.from('envelopes').update({name,monthly_allocation:alloc}).eq('id',env.id).then(()=>{
+    env.name=name;env.monthly_allocation=alloc;
+    renderSettingsEnvelopes();showMsg(`${env.icon} ${name} updated ✓`);
+  });
+  return;
+}
+const envDel=t.closest('.env-del');
+if(envDel){
+  const env=envelopes.find(e=>e.id===envDel.dataset.eid);
+  if(!confirm(`Delete "${env?.name}"?`))return;
+  sb.from('envelopes').delete().eq('id',envDel.dataset.eid).then(()=>{
+    envelopes=envelopes.filter(e=>e.id!==envDel.dataset.eid);
+    renderSettingsEnvelopes();showMsg('Envelope deleted');
+  });
+  return;
+}
+if(t.id==='b-add-envelope'){
+  const name=prompt('Envelope name:');if(!name)return;
+  const icon=prompt('Icon (emoji):','📦');
+  const type=prompt('Type (spending/fixed/savings):','spending');
+  const alloc=parseFloat(prompt('Monthly allocation (COP):'));if(!alloc||isNaN(alloc))return;
+  sb.from('envelopes').insert({user_id:currentUser.id,name,icon:icon||'📦',type:type||'spending',monthly_allocation:alloc,currency:'COP'}).select().single().then(({data})=>{
+    if(data){envelopes.push({...data,spent:0});renderSettingsEnvelopes();showMsg(`${icon} ${name} added!`);}
+  });
+  return;
+}
 });
 
 document.addEventListener('input',function(e){
   const t=e.target;
   if(t.classList.contains('inc-lbl')){const s=incomeSrc.find(x=>x.id===+t.dataset.sid);if(s)s.label=t.value;}
   if(t.classList.contains('inc-amt')){const s=incomeSrc.find(x=>x.id===+t.dataset.sid);if(s){s.amount=+t.value;renderIncomes();}}
-  if(t.id==='settings-budget'){BUDGET=+t.value||4200000;if(currentUser)sb.from('profiles').update({budget:BUDGET}).eq('id',currentUser.id);}
   if(t.id==='settings-name'){if(currentUser)sb.from('profiles').update({name:t.value}).eq('id',currentUser.id);document.getElementById('user-name').textContent=t.value;document.getElementById('user-av').textContent=t.value.slice(0,2).toUpperCase();}
   // Live USD preview
   if(t.id==='tx-amt'||t.id==='tx-currency'){
@@ -2138,6 +2858,16 @@ initAuth();
 <div class="ni" data-p="shortcuts"> Shortcuts</div>
 <div class="ni" data-p="settings"> Settings</div>
   </nav>
+  <div style="margin-top:auto;padding:12px;background:var(--s2);border-radius:10px;border:1px solid var(--bd)">
+    <div style="display:flex;align-items:center;gap:10px">
+      <div class="av" id="mob-user-av">?</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:12px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" id="mob-user-name">—</div>
+        <div style="font-size:10px;color:var(--t2)">Free plan</div>
+      </div>
+      <button id="b-signout3" style="background:none;border:none;color:var(--t3);cursor:pointer;font-size:11px" title="Sign out">⏻</button>
+    </div>
+  </div>
 </div>
 </body>
 </html>
