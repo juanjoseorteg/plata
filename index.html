@@ -827,7 +827,8 @@ const DEFAULT_CATS = [
 ];
 
 // ── UTILS ─────────────────────────────────────────────────────────────────
-const fmt = n => {const a=Math.round(Math.abs(n));return '$'+a.toString().replace(/\B(?=(\d{3})+(?!\d))/g,'.');};const fmtUSD = n => '$'+(Math.abs(n)).toFixed(2);
+const fmt = n => {const a=Math.round(Math.abs(n));return '$'+a.toString().replace(/\B(?=(\d{3})+(?!\d))/g,'.');};
+const fmtUSD = n => '$'+(Math.abs(n)).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
 const toWeekly = (a,f) => f==='monthly'?a/4.33:f==='biweekly'?a/2:a;
 const toMonthly = (a,f) => f==='monthly'?a:f==='biweekly'?a*2:a*4.33;
 const catById = id => cats.find(c=>c.id===id)||{name:'Other',color:'#7a8c82',icon:'📦'};
@@ -893,12 +894,16 @@ async function fetchTRM(){
 // ── ONBOARDING ────────────────────────────────────────────────────────────
 let obStep = 0;
 let obData = {
+  accounts: [],
+  incomes: [],
+  goals: [],
   fixedExpenses: [],
   spendingEnvelopes: [],
   savingsEnvelopes: []
 };
 
-const OB_STEPS = ['welcome', 'fixed', 'spending', 'savings', 'review'];
+const OB_STEPS = ['welcome', 'accounts', 'income', 'goals', 'fixed', 'spending', 'savings', 'review'];
+document.getElementById('ob-step-label').textContent = `Step ${obStep+1} of ${OB_STEPS.length}`;
 
 async function checkOnboarding(){
   const {data:envs} = await sb.from('envelopes').select('id').eq('user_id', currentUser.id).limit(1);
@@ -924,7 +929,44 @@ function renderObStep(){
   updateObProgress();
   const container = document.getElementById('ob-steps');
   const step = OB_STEPS[obStep];
+if(step === 'accounts') {
+    container.innerHTML = `
+    <div>
+      <div style="font-family:'DM Serif Display',serif;font-size:26px;letter-spacing:-.5px;margin-bottom:6px">Your <span style="color:var(--a)">accounts</span></div>
+      <div style="font-size:13px;color:var(--t2);margin-bottom:24px">Where your money lives — bank accounts, digital wallets.</div>
+      <div id="ob-acc-list" style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px">${obData.accounts.map((a,i)=>obAccountItem(a,i)).join('')}</div>
+      <button id="ob-add-account" style="width:100%;padding:12px;border-radius:10px;background:transparent;border:1px dashed var(--bd);color:var(--t2);font-family:'Sora',sans-serif;font-size:13px;cursor:pointer;">+ Add account</button>
+    </div>`;
+    return;
+  }
 
+  if(step === 'income') {
+    container.innerHTML = `
+    <div>
+      <div style="font-family:'DM Serif Display',serif;font-size:26px;letter-spacing:-.5px;margin-bottom:6px">Recurring <span style="color:var(--a)">income</span></div>
+      <div style="font-size:13px;color:var(--t2);margin-bottom:24px">Your salary, freelance, or any regular payments.</div>
+      <div id="ob-income-list" style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px">${obData.incomes.map((s,i)=>obIncomeItem(s,i)).join('')}</div>
+      <button id="ob-add-income-ob" style="width:100%;padding:12px;border-radius:10px;background:transparent;border:1px dashed var(--bd);color:var(--t2);font-family:'Sora',sans-serif;font-size:13px;cursor:pointer;">+ Add income source</button>
+      <div style="margin-top:12px;padding:12px;background:rgba(184,245,102,.04);border:1px solid rgba(184,245,102,.1);border-radius:8px;display:flex;justify-content:space-between;align-items:center">
+        <span style="font-size:12px;color:var(--t2)">Weekly equivalent</span>
+        <span style="font-family:'DM Mono',monospace;font-size:14px;font-weight:500;color:var(--a)" id="ob-income-total">—</span>
+      </div>
+    </div>`;
+    updateObIncomeTotals();
+    return;
+  }
+
+  if(step === 'goals') {
+    container.innerHTML = `
+    <div>
+      <div style="font-family:'DM Serif Display',serif;font-size:26px;letter-spacing:-.5px;margin-bottom:6px">Savings <span style="color:var(--a)">goals</span></div>
+      <div style="font-size:13px;color:var(--t2);margin-bottom:24px">What are you saving for? Add your goals here.</div>
+      <div id="ob-goals-list" style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px">${obData.goals.map((g,i)=>obGoalItem(g,i)).join('')}</div>
+      <button id="ob-add-goal-ob" style="width:100%;padding:12px;border-radius:10px;background:transparent;border:1px dashed var(--bd);color:var(--t2);font-family:'Sora',sans-serif;font-size:13px;cursor:pointer;">+ Add goal</button>
+      <div style="margin-top:12px;padding:10px 14px;background:rgba(102,245,200,.06);border:1px solid rgba(102,245,200,.15);border-radius:8px;font-size:12px;color:var(--t2)">💡 You can skip this and add goals later from the Goals page.</div>
+    </div>`;
+    return;
+  }
   if(step === 'welcome') container.innerHTML = `
     <div style="text-align:center;padding:20px 0">
       <div style="font-size:48px;margin-bottom:16px">₱</div>
@@ -955,16 +997,21 @@ function renderObStep(){
       <button id="ob-add-spending" style="width:100%;margin-top:12px;padding:12px;border-radius:10px;background:transparent;border:1px dashed var(--bd);color:var(--t2);font-family:'Sora',sans-serif;font-size:13px;cursor:pointer;">+ Add custom envelope</button>
     </div>`;
 
-  else if(step === 'savings') container.innerHTML = `
+  else if(step === 'savings'){
+    const allGoals = obData.goals.filter(g=>g.name&&g.target).length
+      ? obData.goals.filter(g=>g.name&&g.target)
+      : goals;
+    container.innerHTML = `
     <div>
       <div style="font-family:'DM Serif Display',serif;font-size:26px;letter-spacing:-.5px;margin-bottom:6px">Savings <span style="color:var(--a)">envelopes</span></div>
       <div style="font-size:13px;color:var(--t2);margin-bottom:24px">How much will you save per month for each goal?</div>
-${goals.length ? `<div id="ob-savings-list" style="display:flex;flex-direction:column;gap:10px">${goals.map((g,i)=>obSavingsItem(g,i)).join('')}</div>` : `<div style="text-align:center;padding:40px;background:var(--s);border:1px solid var(--bd);border-radius:12px;color:var(--t2);font-size:13px;line-height:1.7">No goals yet.<br><span style="font-size:12px">You can add savings goals later from the Goals page.</span></div>`}      <div style="margin-top:16px;padding:14px;background:rgba(102,245,200,.06);border:1px solid rgba(102,245,200,.2);border-radius:10px">
+      ${allGoals.length ? `<div id="ob-savings-list" style="display:flex;flex-direction:column;gap:10px">${allGoals.map((g,i)=>obSavingsItem(g,i)).join('')}</div>` : `<div style="text-align:center;padding:40px;background:var(--s);border:1px solid var(--bd);border-radius:12px;color:var(--t2);font-size:13px;line-height:1.7">No goals yet.<br><span style="font-size:12px">You can add savings goals later from the Goals page.</span></div>`}
+      <div style="margin-top:16px;padding:14px;background:rgba(102,245,200,.06);border:1px solid rgba(102,245,200,.2);border-radius:10px">
         <div style="font-size:11px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;color:var(--a2);margin-bottom:6px">✦ AI currency tip</div>
-        <div style="font-size:12px;color:var(--t2);line-height:1.6">Goals you'll spend in Colombia → save in COP. Goals involving USD (US trips, international purchases) → save in USD to avoid conversion losses.</div>
+        <div style="font-size:12px;color:var(--t2);line-height:1.6">Goals you'll spend in Colombia → save in COP. Goals involving USD → save in USD to avoid conversion losses.</div>
       </div>
     </div>`;
-
+  }
   else if(step === 'review') renderObReview();
 }
 
@@ -973,7 +1020,7 @@ function obFixedItem(e, i){
     <div style="display:flex;gap:8px;align-items:center">
       <input value="${e.icon||'📄'}" maxlength="2" style="width:40px;background:var(--s2);border:1px solid var(--bd);border-radius:8px;padding:6px;color:var(--t);font-size:16px;text-align:center;outline:none" onchange="obData.fixedExpenses[${i}].icon=this.value"/>
       <input value="${e.name}" placeholder="e.g. Rent" style="flex:2;background:var(--s2);border:1px solid var(--bd);border-radius:8px;padding:8px 10px;color:var(--t);font-family:'Sora',sans-serif;font-size:12px;outline:none" onchange="obData.fixedExpenses[${i}].name=this.value"/>
-      <input type="number" value="${e.amount||''}" placeholder="Amount" style="flex:2;background:var(--s2);border:1px solid var(--bd);border-radius:8px;padding:8px 10px;color:var(--t);font-family:'DM Mono',monospace;font-size:12px;outline:none" onchange="obData.fixedExpenses[${i}].amount=+this.value"/>
+      <input type="number" value="${e.amount||''}" <input type="number" value="${e.amount||''}" placeholder="Amount" style="flex:1;min-width:0;background:var(--s2);border:1px solid var(--bd);border-radius:8px;padding:8px 10px;color:var(--t);font-family:'DM Mono',monospace;font-size:12px;outline:none" onchange="obData.fixedExpenses[${i}].amount=+this.value"/>
       <button onclick="obData.fixedExpenses.splice(${i},1);renderObStep()" style="background:none;border:none;color:var(--a4);cursor:pointer;font-size:16px;padding:4px">✕</button>
     </div>
     <div style="display:flex;gap:8px;align-items:center">
@@ -1007,7 +1054,7 @@ function obSpendingItem(e, i){
   return `<div style="display:flex;gap:8px;align-items:center;background:var(--s);border:1px solid var(--bd);border-radius:10px;padding:12px">
     <input value="${e.icon||'📦'}" maxlength="2" style="width:40px;background:var(--s2);border:1px solid var(--bd);border-radius:8px;padding:6px;color:var(--t);font-size:16px;text-align:center;outline:none" onchange="obData.spendingEnvelopes[${i}].icon=this.value"/>
     <input value="${e.name}" placeholder="e.g. Food" style="flex:2;background:var(--s2);border:1px solid var(--bd);border-radius:8px;padding:8px 10px;color:var(--t);font-family:'Sora',sans-serif;font-size:12px;outline:none" onchange="obData.spendingEnvelopes[${i}].name=this.value"/>
-    <input type="number" value="${e.amount||''}" placeholder="Monthly" style="flex:2;background:var(--s2);border:1px solid var(--bd);border-radius:8px;padding:8px 10px;color:var(--t);font-family:'DM Mono',monospace;font-size:12px;outline:none" onchange="obData.spendingEnvelopes[${i}].amount=+this.value"/>
+    <input type="number" value="${e.amount||''}" placeholder="Monthly" style="flex:1;min-width:0;background:var(--s2);border:1px solid var(--bd);border-radius:8px;padding:8px 10px;color:var(--t);font-family:'DM Mono',monospace;font-size:12px;outline:none" onchange="obData.spendingEnvelopes[${i}].amount=+this.value"/>
     <button onclick="obData.spendingEnvelopes.splice(${i},1);renderObStep()" style="background:none;border:none;color:var(--a4);cursor:pointer;font-size:16px;padding:4px">✕</button>
   </div>`;
 }
@@ -1040,7 +1087,65 @@ function obSavingsItem(g, i){
     </div>
   </div>`;
 }
+function obAccountItem(a, i){
+  return `<div style="display:flex;gap:8px;align-items:center;background:var(--s);border:1px solid var(--bd);border-radius:10px;padding:12px">
+    <input value="${a.icon||'🏦'}" maxlength="2" style="width:40px;background:var(--s2);border:1px solid var(--bd);border-radius:8px;padding:6px;color:var(--t);font-size:16px;text-align:center;outline:none" onchange="obData.accounts[${i}].icon=this.value"/>
+    <input value="${a.name}" placeholder="e.g. Bancolombia" style="flex:2;min-width:0;background:var(--s2);border:1px solid var(--bd);border-radius:8px;padding:8px 10px;color:var(--t);font-family:'Sora',sans-serif;font-size:12px;outline:none" onchange="obData.accounts[${i}].name=this.value"/>
+    <select style="flex:1;min-width:0;background:var(--s2);border:1px solid var(--bd);border-radius:8px;padding:8px;color:var(--t);font-family:'Sora',sans-serif;font-size:11px;outline:none" onchange="obData.accounts[${i}].currency=this.value">
+      <option${a.currency==='COP'?' selected':''} value="COP">COP</option>
+      <option${a.currency==='USD'?' selected':''} value="USD">USD</option>
+    </select>
+    <input type="number" value="${a.balance||''}" placeholder="Balance" style="flex:1;min-width:0;background:var(--s2);border:1px solid var(--bd);border-radius:8px;padding:8px 10px;color:var(--t);font-family:'DM Mono',monospace;font-size:12px;outline:none" onchange="obData.accounts[${i}].balance=+this.value"/>
+    <button onclick="obData.accounts.splice(${i},1);renderObStep()" style="background:none;border:none;color:var(--a4);cursor:pointer;font-size:16px;padding:4px">✕</button>
+  </div>`;
+}
 
+function obIncomeItem(s, i){
+  return `<div style="display:flex;flex-direction:column;gap:8px;background:var(--s);border:1px solid var(--bd);border-radius:10px;padding:12px">
+    <div style="display:flex;gap:8px;align-items:center">
+      <input value="${s.label}" placeholder="e.g. Salario" style="flex:2;min-width:0;background:var(--s2);border:1px solid var(--bd);border-radius:8px;padding:8px 10px;color:var(--t);font-family:'Sora',sans-serif;font-size:12px;outline:none" onchange="obData.incomes[${i}].label=this.value"/>
+      <input type="number" value="${s.amount||''}" placeholder="Amount" style="flex:1;min-width:0;background:var(--s2);border:1px solid var(--bd);border-radius:8px;padding:8px 10px;color:var(--t);font-family:'DM Mono',monospace;font-size:12px;outline:none" onchange="obData.incomes[${i}].amount=+this.value;updateObIncomeTotals()"/>
+      <button onclick="obData.incomes.splice(${i},1);renderObStep()" style="background:none;border:none;color:var(--a4);cursor:pointer;font-size:16px;padding:4px">✕</button>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <select style="flex:1;background:var(--s2);border:1px solid var(--bd);border-radius:8px;padding:8px;color:var(--t);font-family:'Sora',sans-serif;font-size:11px;outline:none" onchange="obData.incomes[${i}].currency=this.value;updateObIncomeTotals()">
+        <option${s.currency==='COP'?' selected':''} value="COP">COP</option>
+        <option${s.currency==='USD'?' selected':''} value="USD">USD</option>
+      </select>
+      <select style="flex:2;background:var(--s2);border:1px solid var(--bd);border-radius:8px;padding:8px;color:var(--t);font-family:'Sora',sans-serif;font-size:11px;outline:none" onchange="obData.incomes[${i}].freq=this.value;updateObIncomeTotals()">
+        <option${s.freq==='weekly-day'?' selected':''} value="weekly-day">Weekly</option>
+        <option${s.freq==='monthly-dates'?' selected':''} value="monthly-dates">Monthly</option>
+        <option${s.freq==='biweekly'?' selected':''} value="biweekly">Biweekly</option>
+      </select>
+      <select style="flex:2;background:var(--s2);border:1px solid var(--bd);border-radius:8px;padding:8px;color:var(--t);font-family:'Sora',sans-serif;font-size:11px;outline:none" onchange="obData.incomes[${i}].account_id=this.value">
+        <option value="">— Account —</option>
+        ${obData.accounts.map(a=>`<option value="${a.tempId||''}"${s.account_id===a.tempId?' selected':''}>${a.icon} ${a.name}</option>`).join('')}
+      </select>
+    </div>
+  </div>`;
+}
+
+function obGoalItem(g, i){
+  return `<div style="display:flex;gap:8px;align-items:center;background:var(--s);border:1px solid var(--bd);border-radius:10px;padding:12px">
+    <input value="${g.icon||'🎯'}" maxlength="2" style="width:40px;background:var(--s2);border:1px solid var(--bd);border-radius:8px;padding:6px;color:var(--t);font-size:16px;text-align:center;outline:none" onchange="obData.goals[${i}].icon=this.value"/>
+    <input value="${g.name}" placeholder="e.g. Wedding" style="flex:2;min-width:0;background:var(--s2);border:1px solid var(--bd);border-radius:8px;padding:8px 10px;color:var(--t);font-family:'Sora',sans-serif;font-size:12px;outline:none" onchange="obData.goals[${i}].name=this.value"/>
+    <input type="number" value="${g.target||''}" placeholder="Target $" style="flex:1;min-width:0;background:var(--s2);border:1px solid var(--bd);border-radius:8px;padding:8px 10px;color:var(--t);font-family:'DM Mono',monospace;font-size:12px;outline:none" onchange="obData.goals[${i}].target=+this.value"/>
+    <input type="date" value="${g.deadline||''}" style="flex:1;min-width:0;background:var(--s2);border:1px solid var(--bd);border-radius:8px;padding:8px;color:var(--t);font-family:'Sora',sans-serif;font-size:11px;outline:none" onchange="obData.goals[${i}].deadline=this.value"/>
+    <button onclick="obData.goals.splice(${i},1);renderObStep()" style="background:none;border:none;color:var(--a4);cursor:pointer;font-size:16px;padding:4px">✕</button>
+  </div>`;
+}
+
+function updateObIncomeTotals(){
+  const el = document.getElementById('ob-income-total');
+  if(!el) return;
+  const weekly = obData.incomes.reduce((a,s)=>{
+    if(!s.amount) return a;
+    const amtCOP = s.currency==='USD' ? s.amount*currentTRM : s.amount;
+    const freq = s.freq==='weekly-day'?'weekly':s.freq==='biweekly'?'biweekly':'monthly';
+    return a + toWeekly(amtCOP, freq);
+  },0);
+  el.textContent = weekly>0 ? fmt(weekly)+'/week · '+fmt(weekly*4.33)+'/month' : '—';
+}
 async function renderObReview(){
   const container = document.getElementById('ob-steps');
   const totalFixed = obData.fixedExpenses.reduce((s,e)=>s+(e.currency==='USD'?e.amount*currentTRM:e.amount),0);
@@ -1081,6 +1186,16 @@ async function renderObReview(){
 async function obNext(){
   const step = OB_STEPS[obStep];
 
+  if(step==='accounts'){
+    const invalid = obData.accounts.some(a=>!a.name);
+    if(invalid){showMsg('Fill in account name','var(--a4)');return;}
+  }
+  if(step==='income'){
+    const invalid = obData.incomes.some(s=>!s.label||!s.amount);
+    if(invalid){showMsg('Fill in name and amount for all income sources','var(--a4)');return;}
+  }
+  // goals step is optional — no validation needed
+
   // Validate current step
   if(step==='fixed'){
     const invalid = obData.fixedExpenses.some(e=>!e.name||!e.amount);
@@ -1112,6 +1227,63 @@ async function saveOnboarding(){
   document.getElementById('ob-next').disabled=true;
 
   try{
+    // Save accounts
+    if(obData.accounts.length){
+      const {data:savedAccounts} = await sb.from('accounts').insert(obData.accounts.map((a,i)=>({
+        user_id:currentUser.id,
+        name:a.name,
+        icon:a.icon||'🏦',
+        currency:a.currency||'COP',
+        balance:a.balance||0,
+        color:['#b8f566','#66f5c8','#f5c466','#66b8f5'][i%4],
+        is_primary:i===0
+      }))).select();
+      if(savedAccounts) accounts = savedAccounts;
+      // Map tempIds to real IDs for income sources
+      obData.incomes = obData.incomes.map(s=>({
+        ...s,
+        account_id: savedAccounts?.[obData.accounts.findIndex(a=>a.tempId===s.account_id)]?.id || null
+      }));
+    }
+
+    // Save income sources
+    if(obData.incomes.length){
+      const {data:savedIncomes} = await sb.from('recurring_income').insert(obData.incomes.map(s=>({
+        user_id:currentUser.id,
+        label:s.label,
+        amount:s.amount,
+        currency:s.currency||'COP',
+        freq:s.freq||'monthly-dates',
+        dates:[],
+        day:5,
+        account_id:s.account_id||null
+      }))).select();
+      if(savedIncomes) incomeSrc = savedIncomes.map(s=>({
+        ...s,
+        accountId:s.account_id,
+        amountCOP:s.currency==='USD'?s.amount*currentTRM:s.amount,
+        freqForCalc:s.freq==='weekly-day'?'weekly':'monthly'
+      }));
+    }
+
+    // Save goals
+    if(obData.goals.filter(g=>g.name&&g.target&&g.deadline).length){
+      const {data:savedGoals} = await sb.from('goals').insert(
+        obData.goals.filter(g=>g.name&&g.target&&g.deadline).map(g=>({
+          user_id:currentUser.id,
+          name:g.name,
+          icon:g.icon||'🎯',
+          target:g.target,
+          saved:0,
+          deadline:g.deadline,
+          flex:'fixed'
+        }))
+      ).select();
+      if(savedGoals) goals = savedGoals.map(g=>({...g,milestones:[]}));
+      // Update obData.goals with real IDs for savings envelopes
+      if(savedGoals) obData.goals = obData.goals.map((g,i)=>({...g,id:savedGoals[i]?.id}));
+    }
+
     const allEnvelopes = [
       ...obData.fixedExpenses.map(e=>({
         user_id:currentUser.id,
@@ -1129,15 +1301,18 @@ async function saveOnboarding(){
         monthly_allocation:e.amount,
         type:'spending'
       })),
-      ...obData.savingsEnvelopes.filter(e=>e.amount>0).map(e=>({
-        user_id:currentUser.id,
-        name:e.name,
-        icon:e.icon||'🎯',
-        currency:e.currency||'COP',
-        monthly_allocation:e.amount,
-        type:'savings',
-        goal_id:e.goal_id||null
-      }))
+      ...obData.savingsEnvelopes.filter(e=>e.amount>0).map(e=>{
+        const matchedGoal = obData.goals.find(g=>g.name===e.name);
+        return {
+          user_id:currentUser.id,
+          name:e.name,
+          icon:e.icon||'🎯',
+          currency:e.currency||'COP',
+          monthly_allocation:e.amount,
+          type:'savings',
+          goal_id:matchedGoal?.id||e.goal_id||null
+        };
+      })
     ];
 
     await sb.from('envelopes').insert(allEnvelopes);
@@ -1182,6 +1357,19 @@ document.getElementById('ob-back').addEventListener('click', ()=>{
   if(obStep>0){obStep--;renderObStep();}
 });
 document.addEventListener('click', function(e){
+  if(e.target.id==='ob-add-account'){
+    obData.accounts.push({name:'',icon:'🏦',currency:'COP',balance:0,tempId:'acc-'+Date.now()});
+    renderObStep();
+  }
+  if(e.target.id==='ob-add-income-ob'){
+    obData.incomes.push({label:'',amount:0,currency:'COP',freq:'monthly-dates',account_id:''});
+    renderObStep();
+  }
+  if(e.target.id==='ob-add-goal-ob'){
+    const d=new Date();d.setFullYear(d.getFullYear()+1);
+    obData.goals.push({name:'',icon:'🎯',target:0,deadline:d.toISOString().slice(0,10)});
+    renderObStep();
+  }
   if(e.target.id==='ob-add-fixed'){
     obData.fixedExpenses.push({name:'',icon:'📄',amount:0,currency:'COP',due_day:null});
     renderObStep();
@@ -1473,8 +1661,7 @@ function renderDash(){
   document.getElementById('d-stats').innerHTML=
     `<div class="sc cg"><div class="sl">Total Balance</div><div class="sv">${fmt(totalCOP)}</div><div class="ss">${accounts.length} account${accounts.length!==1?'s':''}</div></div>`+
     `<div class="sc cr"><div class="sl">Spent</div><div class="sv">${fmt(spent)}</div><div class="ss"><span class="dn">↑</span> ${Math.round(spent/BUDGET*100)}% of budget</div></div>`+
-    `<div class="sc ct"><div class="sl">Budget remaining</div><div class="sv">${fmt(Math.max(0,BUDGET-spent))}</div><div class="ss"><span class="up">✓</span> this month</div></div>`+
-    `<div class="sc cy"><div class="sl">Next payment due</div><div class="sv" id="next-due-amt">—</div><div class="ss" id="next-due-name">—</div></div>`;
+`<div class="sc ct"><div class="sl">Envelopes</div><div class="sv">${envelopes.filter(e=>e.type==='spending'||e.type==='fixed').length}</div><div class="ss"><span class="up">✓</span> active this month</div></div>`+    `<div class="sc cy"><div class="sl">Next payment due</div><div class="sv" id="next-due-amt">—</div><div class="ss" id="next-due-name">—</div></div>`;
   const upcoming=allMilestonesSorted();
   if(upcoming.length){const next=upcoming[0];document.getElementById('next-due-amt').textContent=fmt(next.amount);document.getElementById('next-due-name').textContent=`${next.goalIcon} ${next.name} · ${next.days}d`;}
   const spendingEnvs = envelopes.filter(e=>e.type==='spending'||e.type==='fixed');
@@ -1764,8 +1951,13 @@ function renderIncomes(){
       ${s.currency==='USD'&&acc?.currency==='COP'?`<div style="font-size:11px;color:var(--a2);margin-top:4px">≈ ${fmt(s.amount*currentTRM)} COP at TRM ${Math.round(currentTRM).toLocaleString()}</div>`:''}
     </div>`;
   }).join('');
-  const tot=incomeSrc.reduce((a,s)=>a+toWeekly(s.amountCOP||s.amount,s.freqForCalc||'monthly'),0);
-  document.getElementById('income-total').textContent=fmt(tot)+'/week';
+  const weeklyTot = incomeSrc.reduce((a,s)=>{
+    const amtCOP = s.currency==='USD' ? s.amount*currentTRM : s.amount;
+    const freq = s.freq==='weekly-day'?'weekly':'monthly';
+    return a + toWeekly(amtCOP, freq);
+  },0);
+  const monthlyTot = weeklyTot * 4.33;
+  document.getElementById('income-total').textContent=fmt(weeklyTot)+'/week · '+fmt(monthlyTot)+'/month';
 }
 
 // Check if any recurring income is due today
@@ -2231,14 +2423,16 @@ async function saveTx(){
       // If account is USD but paying in COP, convert to USD first
       let delta;
       if(acc.currency==='USD' && currency==='COP'){
-        delta = amtRaw / currentTRM; // convert COP to USD
+        delta = amtRaw / currentTRM;
       } else if(acc.currency==='USD' && currency==='USD'){
-        delta = amtRaw; // already in USD
+        delta = amtRaw;
+      } else if(acc.currency==='COP' && currency==='COP'){
+        delta = amtCOP;
       } else {
-        delta = amtRaw; // COP account, COP amount
+        delta = amtCOP;
       }
       acc.balance = isIncome ? acc.balance+delta : acc.balance-delta;
-      acc.balance = Math.round(acc.currency==='COP' ? acc.balance : acc.balance*100)/100;
+      acc.balance = acc.currency==='COP' ? Math.round(acc.balance) : Math.round(acc.balance*100)/100;
       await sb.from('accounts').update({balance:acc.balance}).eq('id',accountId);
     }
   }
@@ -2272,7 +2466,7 @@ async function deleteEditTx(){
         ? Math.abs(tx.original_amount||tx.amount/currentTRM)
         : Math.abs(tx.amount);
       acc.balance=isIncome?acc.balance-delta:acc.balance+delta;
-      acc.balance=Math.round(acc.currency==='COP'?acc.balance:acc.balance*100)/100;
+      acc.balance=acc.currency==='COP'?Math.round(acc.balance):Math.round(acc.balance*100)/100;
       await sb.from('accounts').update({balance:acc.balance}).eq('id',acc.id);
     }
   }
@@ -2621,7 +2815,7 @@ async function confirmBillPayment(fid){
   // Deduct from account
   if(acc){
     acc.balance = acc.currency==='COP' ? acc.balance-amtCOP : acc.balance-f.amount;
-    acc.balance = Math.round(acc.currency==='COP' ? acc.balance : acc.balance*100)/100;
+    acc.balance = acc.currency==='COP' ? Math.round(acc.balance) : Math.round(acc.balance*100)/100;
     await sb.from('accounts').update({balance:acc.balance}).eq('id',acc.id);
   }
 
@@ -2741,6 +2935,7 @@ const accNavChip=t.closest('.acc-nav-chip');
 if(accNavChip){txDetailAccId=accNavChip.dataset.aid;txDetailCatFilter='all';renderAccountDetail(txDetailAccId);return;}
 // Back button
 if(t.id==='b-tx-back'){txDetailAccId=null;txDetailCatFilter='all';renderTxPage();return;}
+if(t.id==='b-new-tx3'){openTxModal(txDetailAccId);return;}
 const idel=t.closest('.inc-del');
 if(idel){
   const sid=idel.dataset.sid;
