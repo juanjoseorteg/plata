@@ -524,7 +524,7 @@ nav{display:flex;flex-direction:column;gap:2px;}
   </div>
   <div id="income-list"></div>
   <div style="margin-top:12px;padding:12px;background:rgba(184,245,102,.04);border:1px solid rgba(184,245,102,.1);border-radius:8px;display:flex;justify-content:space-between;align-items:center">
-    <span style="font-size:12px;color:var(--t2)">Weekly equivalent</span>
+    <span style="font-size:12px;color:var(--t2)">Monthly total</span>
     <span style="font-family:'DM Mono',monospace;font-size:15px;font-weight:500;color:var(--a)" id="income-total">—</span>
   </div>
 </div>
@@ -1957,7 +1957,7 @@ function renderIncomes(){
     return a + toWeekly(amtCOP, freq);
   },0);
   const monthlyTot = weeklyTot * 4.33;
-  document.getElementById('income-total').textContent=fmt(weeklyTot)+'/week · '+fmt(monthlyTot)+'/month';
+  document.getElementById('income-total').textContent=fmt(monthlyTot)+'/month';
 }
 
 // Check if any recurring income is due today
