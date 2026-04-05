@@ -19,7 +19,11 @@
 .mob-overlay.open{display:block;}
 .mob-drawer{position:fixed;top:0;left:0;bottom:0;width:260px;background:var(--s);border-right:1px solid var(--bd);z-index:802;transform:translateX(-100%);transition:transform .3s cubic-bezier(.16,1,.3,1);padding:28px 16px;display:flex;flex-direction:column;gap:28px;overflow-y:auto;}
 .mob-drawer.open{transform:translateX(0);}
-@media(max-width:900px){.mob-menu-btn{display:none;}.page{padding:20px;padding-top:70px;}}
+@media(max-width:900px){
+  .mob-menu-btn{display:none;}
+  .page{padding:20px;padding-top:24px;}
+  .hdr{padding-left:52px;}
+}
 .payday-modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);backdrop-filter:blur(4px);z-index:700;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .25s;}
 .payday-modal-overlay.open{opacity:1;pointer-events:all;}
 .payday-modal-box{background:var(--s);border:1px solid rgba(184,245,102,.3);border-radius:18px;padding:28px;width:420px;max-width:94vw;transform:translateY(16px);transition:transform .25s cubic-bezier(.16,1,.3,1);}
@@ -326,7 +330,12 @@ nav{display:flex;flex-direction:column;gap:2px;}
 ::-webkit-scrollbar{width:4px;}
 ::-webkit-scrollbar-thumb{background:var(--bd);border-radius:2px;}
 @media(max-width:1000px){.cg2,.goals-layout,.planner-layout,.rg{grid-template-columns:1fr}}
-@media(max-width:900px){.shell{grid-template-columns:1fr}.sidebar{display:none}.stats-row{grid-template-columns:repeat(2,1fr)}.page{padding:20px}}
+@media(max-width:900px){
+  .mob-menu-btn{display:none;}
+  .page{padding:20px;padding-top:24px;}
+  .hdr{padding-left:52px;}
+  .page > div:first-child{padding-left:52px;}
+}
 </style>
 </head>
 <body>
