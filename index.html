@@ -1323,6 +1323,14 @@ Respond ONLY in JSON:
           "monthly": 123456,
           "detail": "hits Jun 2026 deadline exactly",
           "milestone": "Jun 11, 2026"
+        },
+        {
+          "name": "Trip to US",
+          "icon": "🌎",
+          "type": "open_ended",
+          "monthly": 0,
+          "detail": "saves whatever is left after all other commitments",
+          "milestone": null
         }
       ]
     }
@@ -1531,6 +1539,17 @@ Respond ONLY in JSON:
                     }
                     goalRows.push({name:alloc.name, icon:alloc.icon, amount:actualShare, note});
                     goalsTotal += actualShare;
+                  });
+                }
+
+                // 3b. Open-ended goals — get true leftover after fixed goals
+                const openEndedAllocs = (plan?.allocations||activePlan?.allocations||[]).filter(a=>a.type==='open_ended');
+                if(openEndedAllocs.length && remaining > goalsTotal){
+                  const trueLeftover = remaining - goalsTotal;
+                  const share = Math.round(trueLeftover / openEndedAllocs.length);
+                  openEndedAllocs.forEach(a=>{
+                    goalRows.push({name:a.name, icon:a.icon, amount:share, note:'saving what\'s left'});
+                    goalsTotal += share;
                   });
                 }
 
@@ -1991,6 +2010,17 @@ window.showActivePlanDetail = function(){
                     }
                     goalRows.push({name:alloc.name, icon:alloc.icon, amount:actualShare, note});
                     goalsTotal += actualShare;
+                  });
+                }
+
+                // 3b. Open-ended goals — get true leftover after fixed goals
+                const openEndedAllocs = (plan?.allocations||activePlan?.allocations||[]).filter(a=>a.type==='open_ended');
+                if(openEndedAllocs.length && remaining > goalsTotal){
+                  const trueLeftover = remaining - goalsTotal;
+                  const share = Math.round(trueLeftover / openEndedAllocs.length);
+                  openEndedAllocs.forEach(a=>{
+                    goalRows.push({name:a.name, icon:a.icon, amount:share, note:'saving what\'s left'});
+                    goalsTotal += share;
                   });
                 }
 
