@@ -929,45 +929,9 @@ function renderObStep(){
   updateObProgress();
   const container = document.getElementById('ob-steps');
   const step = OB_STEPS[obStep];
-if(step === 'accounts') {
-    container.innerHTML = `
-    <div>
-      <div style="font-family:'DM Serif Display',serif;font-size:26px;letter-spacing:-.5px;margin-bottom:6px">Your <span style="color:var(--a)">accounts</span></div>
-      <div style="font-size:13px;color:var(--t2);margin-bottom:24px">Where your money lives — bank accounts, digital wallets.</div>
-      <div id="ob-acc-list" style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px">${obData.accounts.map((a,i)=>obAccountItem(a,i)).join('')}</div>
-      <button id="ob-add-account" style="width:100%;padding:12px;border-radius:10px;background:transparent;border:1px dashed var(--bd);color:var(--t2);font-family:'Sora',sans-serif;font-size:13px;cursor:pointer;">+ Add account</button>
-    </div>`;
-    return;
-  }
 
-  if(step === 'income') {
+  if(step === 'welcome'){
     container.innerHTML = `
-    <div>
-      <div style="font-family:'DM Serif Display',serif;font-size:26px;letter-spacing:-.5px;margin-bottom:6px">Recurring <span style="color:var(--a)">income</span></div>
-      <div style="font-size:13px;color:var(--t2);margin-bottom:24px">Your salary, freelance, or any regular payments.</div>
-      <div id="ob-income-list" style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px">${obData.incomes.map((s,i)=>obIncomeItem(s,i)).join('')}</div>
-      <button id="ob-add-income-ob" style="width:100%;padding:12px;border-radius:10px;background:transparent;border:1px dashed var(--bd);color:var(--t2);font-family:'Sora',sans-serif;font-size:13px;cursor:pointer;">+ Add income source</button>
-      <div style="margin-top:12px;padding:12px;background:rgba(184,245,102,.04);border:1px solid rgba(184,245,102,.1);border-radius:8px;display:flex;justify-content:space-between;align-items:center">
-        <span style="font-size:12px;color:var(--t2)">Weekly equivalent</span>
-        <span style="font-family:'DM Mono',monospace;font-size:14px;font-weight:500;color:var(--a)" id="ob-income-total">—</span>
-      </div>
-    </div>`;
-    updateObIncomeTotals();
-    return;
-  }
-
-  if(step === 'goals') {
-    container.innerHTML = `
-    <div>
-      <div style="font-family:'DM Serif Display',serif;font-size:26px;letter-spacing:-.5px;margin-bottom:6px">Savings <span style="color:var(--a)">goals</span></div>
-      <div style="font-size:13px;color:var(--t2);margin-bottom:24px">What are you saving for? Add your goals here.</div>
-      <div id="ob-goals-list" style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px">${obData.goals.map((g,i)=>obGoalItem(g,i)).join('')}</div>
-      <button id="ob-add-goal-ob" style="width:100%;padding:12px;border-radius:10px;background:transparent;border:1px dashed var(--bd);color:var(--t2);font-family:'Sora',sans-serif;font-size:13px;cursor:pointer;">+ Add goal</button>
-      <div style="margin-top:12px;padding:10px 14px;background:rgba(102,245,200,.06);border:1px solid rgba(102,245,200,.15);border-radius:8px;font-size:12px;color:var(--t2)">💡 You can skip this and add goals later from the Goals page.</div>
-    </div>`;
-    return;
-  }
-  else if(step === 'welcome') container.innerHTML = `
     <div style="text-align:center;padding:20px 0">
       <div style="font-size:48px;margin-bottom:16px">₱</div>
       <div style="font-family:'DM Serif Display',serif;font-size:32px;letter-spacing:-.5px;margin-bottom:12px">Welcome to <span style="color:var(--a)">Plata</span></div>
@@ -980,24 +944,67 @@ if(step === 'accounts') {
           <div><div style="font-size:13px;font-weight:600;margin-bottom:2px">${title}</div><div style="font-size:12px;color:var(--t2)">${desc}</div></div>
         </div>`).join('')}
     </div>`;
+    return;
+  }
 
-  else if(step === 'fixed') container.innerHTML = `
+  if(step === 'accounts'){
+    container.innerHTML = `
+    <div>
+      <div style="font-family:'DM Serif Display',serif;font-size:26px;letter-spacing:-.5px;margin-bottom:6px">Your <span style="color:var(--a)">accounts</span></div>
+      <div style="font-size:13px;color:var(--t2);margin-bottom:24px">Where your money lives — bank accounts, digital wallets.</div>
+      <div id="ob-acc-list" style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px">${obData.accounts.map((a,i)=>obAccountItem(a,i)).join('')}</div>
+      <button id="ob-add-account" style="width:100%;padding:12px;border-radius:10px;background:transparent;border:1px dashed var(--bd);color:var(--t2);font-family:'Sora',sans-serif;font-size:13px;cursor:pointer;">+ Add account</button>
+    </div>`;
+    return;
+  }
+
+  if(step === 'income'){
+    container.innerHTML = `
+    <div>
+      <div style="font-family:'DM Serif Display',serif;font-size:26px;letter-spacing:-.5px;margin-bottom:6px">Recurring <span style="color:var(--a)">income</span></div>
+      <div style="font-size:13px;color:var(--t2);margin-bottom:24px">Your salary, freelance, or any regular payments.</div>
+      <div id="ob-income-list" style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px">${obData.incomes.map((s,i)=>obIncomeItem(s,i)).join('')}</div>
+      <button id="ob-add-income-ob" style="width:100%;padding:12px;border-radius:10px;background:transparent;border:1px dashed var(--bd);color:var(--t2);font-family:'Sora',sans-serif;font-size:13px;cursor:pointer;">+ Add income source</button>
+    </div>`;
+    updateObIncomeTotals();
+    return;
+  }
+
+  if(step === 'goals'){
+    container.innerHTML = `
+    <div>
+      <div style="font-family:'DM Serif Display',serif;font-size:26px;letter-spacing:-.5px;margin-bottom:6px">Savings <span style="color:var(--a)">goals</span></div>
+      <div style="font-size:13px;color:var(--t2);margin-bottom:24px">What are you saving for? Add your goals here.</div>
+      <div id="ob-goals-list" style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px">${obData.goals.map((g,i)=>obGoalItem(g,i)).join('')}</div>
+      <button id="ob-add-goal-ob" style="width:100%;padding:12px;border-radius:10px;background:transparent;border:1px dashed var(--bd);color:var(--t2);font-family:'Sora',sans-serif;font-size:13px;cursor:pointer;">+ Add goal</button>
+      <div style="margin-top:12px;padding:10px 14px;background:rgba(102,245,200,.06);border:1px solid rgba(102,245,200,.15);border-radius:8px;font-size:12px;color:var(--t2)">💡 You can skip this and add goals later from the Goals page.</div>
+    </div>`;
+    return;
+  }
+
+  if(step === 'fixed'){
+    container.innerHTML = `
     <div>
       <div style="font-family:'DM Serif Display',serif;font-size:26px;letter-spacing:-.5px;margin-bottom:6px">Fixed <span style="color:var(--a)">expenses</span></div>
       <div style="font-size:13px;color:var(--t2);margin-bottom:24px">Things you pay every month — rent, internet, subscriptions.</div>
       <div id="ob-fixed-list" style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px">${obData.fixedExpenses.map((e,i)=>obFixedItem(e,i)).join('')}</div>
       <button id="ob-add-fixed" style="width:100%;padding:12px;border-radius:10px;background:transparent;border:1px dashed var(--bd);color:var(--t2);font-family:'Sora',sans-serif;font-size:13px;cursor:pointer;">+ Add fixed expense</button>
     </div>`;
+    return;
+  }
 
-  else if(step === 'spending') container.innerHTML = `
+  if(step === 'spending'){
+    container.innerHTML = `
     <div>
       <div style="font-family:'DM Serif Display',serif;font-size:26px;letter-spacing:-.5px;margin-bottom:6px">Spending <span style="color:var(--a)">envelopes</span></div>
       <div style="font-size:13px;color:var(--t2);margin-bottom:24px">How much do you usually spend each month on these?</div>
       <div id="ob-spending-list" style="display:flex;flex-direction:column;gap:10px">${obData.spendingEnvelopes.length ? obData.spendingEnvelopes.map((e,i)=>obSpendingItem(e,i)).join('') : obDefaultSpending()}</div>
       <button id="ob-add-spending" style="width:100%;margin-top:12px;padding:12px;border-radius:10px;background:transparent;border:1px dashed var(--bd);color:var(--t2);font-family:'Sora',sans-serif;font-size:13px;cursor:pointer;">+ Add custom envelope</button>
     </div>`;
+    return;
+  }
 
-  else if(step === 'savings'){
+  if(step === 'savings'){
     const allGoals = obData.goals.filter(g=>g.name&&g.target).length
       ? obData.goals.filter(g=>g.name&&g.target)
       : goals;
@@ -1011,8 +1018,10 @@ if(step === 'accounts') {
         <div style="font-size:12px;color:var(--t2);line-height:1.6">Goals you'll spend in Colombia → save in COP. Goals involving USD → save in USD to avoid conversion losses.</div>
       </div>
     </div>`;
+    return;
   }
-  else if(step === 'review') renderObReview();
+
+  if(step === 'review') renderObReview();
 }
 
 function obFixedItem(e, i){
