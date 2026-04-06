@@ -911,7 +911,7 @@ async function checkOnboarding(){
     // No envelopes — show onboarding
     document.getElementById('app-shell').classList.remove('ready');
     obStep = 0;
-    obData = {fixedExpenses:[], spendingEnvelopes:[], savingsEnvelopes:[]};
+    obData = {accounts:[], incomes:[], goals:[], fixedExpenses:[], spendingEnvelopes:[], savingsEnvelopes:[]};
     renderObStep();
     document.getElementById('onboarding').style.display='block';
   }
