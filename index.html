@@ -647,6 +647,11 @@ nav{display:flex;flex-direction:column;gap:2px;}
 <div class="mo" id="mo-goal"><div class="mdl">
   <div class="mtit" id="gm-title">New goal</div><div class="msub" id="gm-sub">Set a target with milestones</div>
   <input type="hidden" id="gm-id" value=""/>
+  <div style="display:flex;gap:0;margin-bottom:18px;background:var(--s2);border-radius:10px;padding:4px">
+    <button class="tx-type-btn active" id="gm-btn-fixed" onclick="setGoalType('fixed')" style="flex:1;padding:9px;border-radius:8px;border:none;background:var(--a);color:#0d0f0e;font-family:'Sora',sans-serif;font-size:13px;font-weight:600;cursor:pointer">🎯 Fixed</button>
+    <button class="tx-type-btn" id="gm-btn-open" onclick="setGoalType('open')" style="flex:1;padding:9px;border-radius:8px;border:none;background:transparent;color:var(--t2);font-family:'Sora',sans-serif;font-size:13px;font-weight:500;cursor:pointer">🪣 Open-ended</button>
+  </div>
+  <div id="gm-fixed-fields">
   <div style="display:grid;grid-template-columns:1fr 80px;gap:10px">
     <div class="field"><label>Goal name</label><input type="text" id="gm-name" placeholder="e.g. Wedding"/></div>
     <div class="field"><label>Icon</label><input type="text" id="gm-icon" placeholder="💍" maxlength="2"/></div>
@@ -656,12 +661,26 @@ nav{display:flex;flex-direction:column;gap:2px;}
   <div class="field"><label>Already saved (COP $)</label><input type="number" id="gm-saved" placeholder="0"/></div>
 </div>
 <div class="field"><label>Final deadline <span style="color:var(--t3);font-weight:400">— optional</span></label><input type="date" id="gm-deadline"/></div>
-  <div class="field"><label>Flexibility</label>
+  <div class="field"><label>Can this deadline move?</label>
     <select id="gm-flex">
-      <option value="fixed">Fixed — non-negotiable deadline</option>
-      <option value="semiflex">Semi-flexible — can shift 1-2 months</option>
-      <option value="flex">Flexible — deadline can move</option>
+      <option value="fixed">No — non-negotiable</option>
+      <option value="flex">Yes — flexible if needed</option>
     </select>
+  </div>
+  </div><!-- end gm-fixed-fields -->
+  <div id="gm-open-fields" style="display:none;padding:14px;background:rgba(102,245,200,.06);border:1px solid rgba(102,245,200,.15);border-radius:10px;margin-bottom:14px">
+    <div style="font-size:13px;font-weight:600;margin-bottom:10px">💡 Open-ended goal</div>
+    <div style="font-size:12px;color:var(--t2);line-height:1.6;margin-bottom:12px">No fixed amount or deadline. Tell the AI roughly when you'll need this money so it can prioritize it correctly.</div>
+    <div class="field" style="margin-bottom:0">
+      <label>When do you roughly need this?</label>
+      <select id="gm-urgency">
+        <option value="this-month">This month — very urgent</option>
+        <option value="1-3-months">1–3 months</option>
+        <option value="3-6-months" selected>3–6 months</option>
+        <option value="6-12-months">6–12 months</option>
+        <option value="no-rush">No rush — true leftover bucket</option>
+      </select>
+    </div>
   </div>
   <div style="border-top:1px solid var(--bd);padding-top:16px;margin-top:4px">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
@@ -841,7 +860,37 @@ const fmtDate = d => new Date(d).toLocaleDateString('en-US',{month:'short',day:'
 const urgencyOf = days => days<=30?'urgent':days<=90?'soon':'comfortable';
 const urgencyColor = {urgent:'var(--a4)',soon:'var(--a3)',comfortable:'var(--a)'};
 const urgencyLabel = {urgent:'🔴 Urgent',soon:'🟡 Soon',comfortable:'🟢 On track'};
-const openMo = id => document.getElementById(id).classList.add('open');
+function attachNumberPreviews(){
+  document.querySelectorAll('input[type="number"]').forEach(inp=>{
+    if(inp.dataset.previewAttached) return;
+    inp.dataset.previewAttached = 'true';
+    function getCurrency(){
+      const sel = inp.closest('div')?.querySelector('select');
+      if(sel&&(sel.value==='USD'||sel.value==='COP')) return sel.value;
+      return 'COP';
+    }
+    let preview = inp.nextElementSibling;
+    if(!preview||!preview.classList.contains('num-preview')){
+      preview = document.createElement('div');
+      preview.className = 'num-preview';
+      preview.style.cssText = 'font-size:10px;color:var(--a2);margin-top:2px;font-family:"DM Mono",monospace;min-height:12px;';
+      inp.insertAdjacentElement('afterend', preview);
+    }
+    function update(){
+      const val = parseFloat(inp.value);
+      if(!inp.value||isNaN(val)){preview.textContent='';return;}
+      const cur = getCurrency();
+      preview.textContent = cur==='USD'
+        ? '→ $'+val.toLocaleString('en-US')
+        : '→ $'+val.toLocaleString('es-CO');
+    }
+    inp.addEventListener('input', update);
+    const nearSel = inp.closest('div')?.querySelector('select');
+    if(nearSel) nearSel.addEventListener('change', update);
+    if(inp.value) update();
+  });
+}
+const openMo = id => { document.getElementById(id).classList.add('open'); setTimeout(attachNumberPreviews, 50); };
 const closeMo = id => document.getElementById(id).classList.remove('open');
 const closeAllMenus = () => document.querySelectorAll('.gmenu').forEach(m=>m.classList.remove('open'));
 
@@ -862,11 +911,44 @@ function showMsg(msg, color='var(--a)'){
   toastAutoClose=setTimeout(()=>{if(!toastExpanded)hideAIToast();},4000);
 }
 
+const URGENCY_DAYS = {
+  'this-month': 15,
+  '1-3-months': 60,
+  '3-6-months': 120,
+  '6-12-months': 270,
+  'no-rush': 9999
+};
+
 function allMilestonesSorted(){
   const all=[];
   goals.forEach(g=>{
-    (g.milestones||[]).forEach(m=>all.push({...m,goalName:g.name,goalIcon:g.icon,goalId:g.id,days:daysUntil(m.date)}));
-    if(!(g.milestones||[]).length && g.target && g.deadline) all.push({name:'Final target',amount:g.target-g.saved,date:g.deadline,refundable:false,goalName:g.name,goalIcon:g.icon,goalId:g.id,days:daysUntil(g.deadline)});
+    const isOpenEnded = g.goal_type==='open';
+    if(isOpenEnded){
+      // Open-ended goals get a synthetic days value based on urgency
+      const syntheticDays = URGENCY_DAYS[g.urgency||'no-rush'];
+      if(syntheticDays < 9999){
+        all.push({
+          name: g.name,
+          amount: 0,
+          date: null,
+          refundable: false,
+          goalName: g.name,
+          goalIcon: g.icon,
+          goalId: g.id,
+          days: syntheticDays,
+          isOpenEnded: true,
+          urgencyLabel: g.urgency
+        });
+      }
+      return;
+    }
+    (g.milestones||[]).forEach(m=>{
+      if(!m.date) return; // skip undated milestones from timeline
+      all.push({...m,goalName:g.name,goalIcon:g.icon,goalId:g.id,days:daysUntil(m.date)});
+    });
+    if(!(g.milestones||[]).length && g.target && g.deadline){
+      all.push({name:'Final target',amount:g.target-g.saved,date:g.deadline,refundable:false,goalName:g.name,goalIcon:g.icon,goalId:g.id,days:daysUntil(g.deadline)});
+    }
   });
   return all.filter(m=>m.days>=0).sort((a,b)=>a.days-b.days);
 }
@@ -1026,15 +1108,18 @@ function renderObStep(){
   }
 
   if(step === 'review') renderObReview();
+  setTimeout(attachNumberPreviews, 150);
 }
 
 function obFixedItem(e, i){
   return `<div style="display:flex;flex-direction:column;gap:8px;background:var(--s);border:1px solid var(--bd);border-radius:10px;padding:12px">
     <div style="display:flex;gap:8px;align-items:center">
-      <input value="${e.icon||'📄'}" maxlength="2" style="width:40px;background:var(--s2);border:1px solid var(--bd);border-radius:8px;padding:6px;color:var(--t);font-size:16px;text-align:center;outline:none" onchange="obData.fixedExpenses[${i}].icon=this.value"/>
+      <input value="${e.icon||'📄'}" maxlength="2" style="width:40px;background:var(--s2);border:1px solid var(--bd);border-radius:8px;padding:6px;color:var(--t);font-size:16px;text-align:center;outline:none" oninput="obData.fixedExpenses[${i}].icon=this.value"/>
       <input value="${e.name}" placeholder="e.g. Rent" style="flex:2;background:var(--s2);border:1px solid var(--bd);border-radius:8px;padding:8px 10px;color:var(--t);font-family:'Sora',sans-serif;font-size:12px;outline:none" onchange="obData.fixedExpenses[${i}].name=this.value"/>
-      <input type="number" value="${e.amount||''}" <input type="number" value="${e.amount||''}" placeholder="Amount" style="flex:1;min-width:0;background:var(--s2);border:1px solid var(--bd);border-radius:8px;padding:8px 10px;color:var(--t);font-family:'DM Mono',monospace;font-size:12px;outline:none" onchange="obData.fixedExpenses[${i}].amount=+this.value"/>
-      <button onclick="obData.fixedExpenses.splice(${i},1);renderObStep()" style="background:none;border:none;color:var(--a4);cursor:pointer;font-size:16px;padding:4px">✕</button>
+<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px">
+  <input type="number" value="${e.amount||''}" placeholder="Amount" style="width:100%;background:var(--s2);border:1px solid var(--bd);border-radius:8px;padding:8px 10px;color:var(--t);font-family:'DM Mono',monospace;font-size:12px;outline:none" onchange="obData.fixedExpenses[${i}].amount=+this.value" oninput="this.nextElementSibling.textContent=this.value?'→ $'+parseFloat(this.value).toLocaleString('es-CO'):''"/>
+  <div style="font-size:9px;color:var(--a2);font-family:'DM Mono',monospace;min-height:11px"></div>
+</div>      <button onclick="obData.fixedExpenses.splice(${i},1);renderObStep()" style="background:none;border:none;color:var(--a4);cursor:pointer;font-size:16px;padding:4px">✕</button>
     </div>
     <div style="display:flex;gap:8px;align-items:center">
       <select style="flex:1;background:var(--s2);border:1px solid var(--bd);border-radius:8px;padding:8px;color:var(--t);font-family:'Sora',sans-serif;font-size:11px;outline:none" onchange="obData.fixedExpenses[${i}].currency=this.value">
@@ -1067,10 +1152,12 @@ function obDefaultSpending(){
 
 function obSpendingItem(e, i){
   return `<div style="display:flex;gap:8px;align-items:center;background:var(--s);border:1px solid var(--bd);border-radius:10px;padding:12px">
-    <input value="${e.icon||'📦'}" maxlength="2" style="width:40px;background:var(--s2);border:1px solid var(--bd);border-radius:8px;padding:6px;color:var(--t);font-size:16px;text-align:center;outline:none" onchange="obData.spendingEnvelopes[${i}].icon=this.value"/>
+    <input value="${e.icon||'📦'}" maxlength="2" style="width:40px;background:var(--s2);border:1px solid var(--bd);border-radius:8px;padding:6px;color:var(--t);font-size:16px;text-align:center;outline:none" oninput="obData.spendingEnvelopes[${i}].icon=this.value"/>
     <input value="${e.name}" placeholder="e.g. Food" style="flex:2;background:var(--s2);border:1px solid var(--bd);border-radius:8px;padding:8px 10px;color:var(--t);font-family:'Sora',sans-serif;font-size:12px;outline:none" onchange="obData.spendingEnvelopes[${i}].name=this.value"/>
-    <input type="number" value="${e.amount||''}" placeholder="Monthly" style="flex:1;min-width:0;background:var(--s2);border:1px solid var(--bd);border-radius:8px;padding:8px 10px;color:var(--t);font-family:'DM Mono',monospace;font-size:12px;outline:none" onchange="obData.spendingEnvelopes[${i}].amount=+this.value"/>
-    <button onclick="obData.spendingEnvelopes.splice(${i},1);renderObStep()" style="background:none;border:none;color:var(--a4);cursor:pointer;font-size:16px;padding:4px">✕</button>
+<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px">
+  <input type="number" value="${e.amount||''}" placeholder="Monthly" style="width:100%;background:var(--s2);border:1px solid var(--bd);border-radius:8px;padding:8px 10px;color:var(--t);font-family:'DM Mono',monospace;font-size:12px;outline:none" onchange="obData.spendingEnvelopes[${i}].amount=+this.value" oninput="this.nextElementSibling.textContent=this.value?'→ $'+parseFloat(this.value).toLocaleString('es-CO'):''"/>
+  <div style="font-size:9px;color:var(--a2);font-family:'DM Mono',monospace;min-height:11px"></div>
+</div>    <button onclick="obData.spendingEnvelopes.splice(${i},1);renderObStep()" style="background:none;border:none;color:var(--a4);cursor:pointer;font-size:16px;padding:4px">✕</button>
   </div>`;
 }
 
@@ -1104,23 +1191,29 @@ function obSavingsItem(g, i){
 }
 function obAccountItem(a, i){
   return `<div style="display:flex;gap:8px;align-items:center;background:var(--s);border:1px solid var(--bd);border-radius:10px;padding:12px">
-    <input value="${a.icon||'🏦'}" maxlength="2" style="width:40px;background:var(--s2);border:1px solid var(--bd);border-radius:8px;padding:6px;color:var(--t);font-size:16px;text-align:center;outline:none" onchange="obData.accounts[${i}].icon=this.value"/>
+    <input value="${a.icon||'🏦'}" maxlength="2" style="width:40px;background:var(--s2);border:1px solid var(--bd);border-radius:8px;padding:6px;color:var(--t);font-size:16px;text-align:center;outline:none" oninput="obData.accounts[${i}].icon=this.value"/>
     <input value="${a.name}" placeholder="e.g. Bancolombia" style="flex:2;min-width:0;background:var(--s2);border:1px solid var(--bd);border-radius:8px;padding:8px 10px;color:var(--t);font-family:'Sora',sans-serif;font-size:12px;outline:none" onchange="obData.accounts[${i}].name=this.value"/>
     <select style="flex:1;min-width:0;background:var(--s2);border:1px solid var(--bd);border-radius:8px;padding:8px;color:var(--t);font-family:'Sora',sans-serif;font-size:11px;outline:none" onchange="obData.accounts[${i}].currency=this.value">
       <option${a.currency==='COP'?' selected':''} value="COP">COP</option>
       <option${a.currency==='USD'?' selected':''} value="USD">USD</option>
     </select>
-    <input type="number" value="${a.balance||''}" placeholder="Balance" style="flex:1;min-width:0;background:var(--s2);border:1px solid var(--bd);border-radius:8px;padding:8px 10px;color:var(--t);font-family:'DM Mono',monospace;font-size:12px;outline:none" onchange="obData.accounts[${i}].balance=+this.value"/>
+<div style="flex:1;min-width:0">
+  <input type="number" value="${a.balance||''}" placeholder="Balance" style="width:100%;background:var(--s2);border:1px solid var(--bd);border-radius:8px;padding:8px 10px;color:var(--t);font-family:'DM Mono',monospace;font-size:12px;outline:none" onchange="obData.accounts[${i}].balance=+this.value" oninput="document.getElementById('acc-preview-${i}').textContent=this.value?'→ '+parseFloat(this.value).toLocaleString('es-CO')+' COP':''"/>
+</div>
     <button onclick="obData.accounts.splice(${i},1);renderObStep()" style="background:none;border:none;color:var(--a4);cursor:pointer;font-size:16px;padding:4px">✕</button>
-  </div>`;
+  </div>
+  <div id="acc-preview-${i}" style="font-size:10px;color:var(--a2);font-family:'DM Mono',monospace;min-height:14px;padding:2px 6px"></div>`;
 }
 
 function obIncomeItem(s, i){
   return `<div style="display:flex;flex-direction:column;gap:8px;background:var(--s);border:1px solid var(--bd);border-radius:10px;padding:12px">
     <div style="display:flex;gap:8px;align-items:center">
       <input value="${s.label}" placeholder="e.g. Salario" style="flex:2;min-width:0;background:var(--s2);border:1px solid var(--bd);border-radius:8px;padding:8px 10px;color:var(--t);font-family:'Sora',sans-serif;font-size:12px;outline:none" onchange="obData.incomes[${i}].label=this.value"/>
-      <input type="number" value="${s.amount||''}" placeholder="${s.freq==='monthly-dates'?'Monthly amount':s.freq==='biweekly'?'Amount per payment':s.freq==='weekly-day'?'Amount per week':'Amount per payment'}" style="flex:1;min-width:0;background:var(--s2);border:1px solid var(--bd);border-radius:8px;padding:8px 10px;color:var(--t);font-family:'DM Mono',monospace;font-size:12px;outline:none" onchange="obData.incomes[${i}].amount=+this.value;updateObIncomeTotals()"/>
-      <button onclick="obData.incomes.splice(${i},1);renderObStep()" style="background:none;border:none;color:var(--a4);cursor:pointer;font-size:16px;padding:4px">✕</button>
+<div style="flex:1;min-width:0">
+  <input type="number" value="${s.amount||''}" placeholder="${s.freq==='monthly-dates'?'Monthly amount':s.freq==='biweekly'?'Amount per payment':s.freq==='weekly-day'?'Amount per week':'Amount per payment'}" style="width:100%;background:var(--s2);border:1px solid var(--bd);border-radius:8px;padding:8px 10px;color:var(--t);font-family:'DM Mono',monospace;font-size:12px;outline:none" onchange="obData.incomes[${i}].amount=+this.value;updateObIncomeTotals()" oninput="document.getElementById('inc-amt-preview-${i}').textContent=this.value?'→ $'+parseFloat(this.value).toLocaleString('es-CO'):'';updateObIncomeTotals()"/>
+  <div id="inc-amt-preview-${i}" style="font-size:9px;color:var(--a2);font-family:'DM Mono',monospace;min-height:11px;padding:2px 0"></div>
+</div>    
+<button onclick="obData.incomes.splice(${i},1);renderObStep()" style="background:none;border:none;color:var(--a4);cursor:pointer;font-size:16px;padding:4px">✕</button>
     </div>
     <div style="display:flex;gap:8px;align-items:center">
       <select style="flex:1;background:var(--s2);border:1px solid var(--bd);border-radius:8px;padding:8px;color:var(--t);font-family:'Sora',sans-serif;font-size:11px;outline:none" onchange="obData.incomes[${i}].currency=this.value;updateObIncomeTotals()">
@@ -1164,12 +1257,30 @@ function obIncomeItem(s, i){
 }
 function obGoalItem(g, i){
   const milestones = g.milestones || [];
+  const isOpen = g.goal_type === 'open';
   return `<div style="background:var(--s);border:1px solid var(--bd);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:10px">
     <div style="display:flex;gap:8px;align-items:center">
-      <input value="${g.icon||'🎯'}" maxlength="2" style="width:40px;background:var(--s2);border:1px solid var(--bd);border-radius:8px;padding:6px;color:var(--t);font-size:16px;text-align:center;outline:none" onchange="obData.goals[${i}].icon=this.value"/>
+      <input value="${g.icon||'🎯'}" maxlength="2" style="width:40px;background:var(--s2);border:1px solid var(--bd);border-radius:8px;padding:6px;color:var(--t);font-size:16px;text-align:center;outline:none" oninput="obData.goals[${i}].icon=this.value"/>
       <input value="${g.name}" placeholder="e.g. Trip to Europe" style="flex:2;min-width:0;background:var(--s2);border:1px solid var(--bd);border-radius:8px;padding:8px 10px;color:var(--t);font-family:'Sora',sans-serif;font-size:12px;outline:none" onchange="obData.goals[${i}].name=this.value"/>
       <button onclick="obData.goals.splice(${i},1);renderObStep()" style="background:none;border:none;color:var(--a4);cursor:pointer;font-size:16px;padding:4px">✕</button>
     </div>
+
+    <div style="display:flex;gap:0;background:var(--s2);border-radius:8px;padding:3px">
+      <button onclick="obData.goals[${i}].goal_type='fixed';renderObStep()" style="flex:1;padding:7px;border-radius:6px;border:none;background:${!isOpen?'var(--a)':'transparent'};color:${!isOpen?'#0d0f0e':'var(--t2)'};font-family:'Sora',sans-serif;font-size:11px;font-weight:600;cursor:pointer">🎯 Fixed</button>
+      <button onclick="obData.goals[${i}].goal_type='open';renderObStep()" style="flex:1;padding:7px;border-radius:6px;border:none;background:${isOpen?'var(--a)':'transparent'};color:${isOpen?'#0d0f0e':'var(--t2)'};font-family:'Sora',sans-serif;font-size:11px;font-weight:600;cursor:pointer">🪣 Open-ended</button>
+    </div>
+
+    ${isOpen ? `
+    <div style="padding:10px 12px;background:rgba(102,245,200,.06);border:1px solid rgba(102,245,200,.15);border-radius:8px">
+      <div style="font-size:11px;color:var(--t2);margin-bottom:8px;line-height:1.6">No fixed amount or deadline. Tell the AI roughly when you'll need this.</div>
+      <select onchange="obData.goals[${i}].urgency=this.value" style="width:100%;background:var(--s2);border:1px solid var(--bd);border-radius:8px;padding:8px;color:var(--t);font-family:'Sora',sans-serif;font-size:11px;outline:none">
+        <option value="this-month"${(g.urgency||'')==='this-month'?' selected':''}>This month — very urgent</option>
+        <option value="1-3-months"${(g.urgency||'')==='1-3-months'?' selected':''}>1–3 months</option>
+        <option value="3-6-months"${(g.urgency||'3-6-months')==='3-6-months'?' selected':''}>3–6 months</option>
+        <option value="6-12-months"${(g.urgency||'')==='6-12-months'?' selected':''}>6–12 months</option>
+        <option value="no-rush"${(g.urgency||'')==='no-rush'?' selected':''}>No rush — true leftover bucket</option>
+      </select>
+    </div>` : `
     <div style="display:flex;gap:8px">
       <input type="number" value="${g.target||''}" placeholder="Total target (optional)" style="flex:1;background:var(--s2);border:1px solid var(--bd);border-radius:8px;padding:8px 10px;color:var(--t);font-family:'DM Mono',monospace;font-size:12px;outline:none" onchange="obData.goals[${i}].target=+this.value"/>
       <input type="date" value="${g.deadline||''}" style="flex:1;background:var(--s2);border:1px solid var(--bd);border-radius:8px;padding:8px;color:var(--t);font-family:'Sora',sans-serif;font-size:11px;outline:none" onchange="obData.goals[${i}].deadline=this.value"/>
@@ -1185,22 +1296,21 @@ function obGoalItem(g, i){
           <button onclick="obData.goals[${i}].milestones.splice(${mi},1);renderObStep()" style="background:none;border:none;color:var(--a4);cursor:pointer;font-size:14px;padding:2px">✕</button>
         </div>
         <div style="display:flex;gap:6px;align-items:center">
-          <input type="number" value="${m.amount||''}" placeholder="Amount" style="flex:2;background:var(--s2);border:1px solid var(--bd);border-radius:6px;padding:6px 8px;color:var(--t);font-family:'DM Mono',monospace;font-size:11px;outline:none" onchange="obData.goals[${i}].milestones[${mi}].amount=+this.value"/>
+          <input type="number" value="${m.amount||''}" placeholder="Amount (optional)" style="flex:2;background:var(--s2);border:1px solid var(--bd);border-radius:6px;padding:6px 8px;color:var(--t);font-family:'DM Mono',monospace;font-size:11px;outline:none" onchange="obData.goals[${i}].milestones[${mi}].amount=+this.value"/>
+          <div style="flex:2;display:flex;flex-direction:column;gap:3px">
+  <input type="number" value="${m.monthly_contribution||''}" placeholder="How much to save monthly?" style="width:100%;background:var(--s2);border:1px solid var(--bd);border-radius:6px;padding:6px 8px;color:var(--t);font-family:'DM Mono',monospace;font-size:11px;outline:none" onchange="obData.goals[${i}].milestones[${mi}].monthly_contribution=+this.value"/>
+  <div style="font-size:9px;color:var(--t3)">Optional — leave blank and AI will suggest</div>
+</div>
           <select style="flex:1;background:var(--s2);border:1px solid var(--bd);border-radius:6px;padding:6px;color:var(--t);font-family:'Sora',sans-serif;font-size:10px;outline:none" onchange="obData.goals[${i}].milestones[${mi}].currency=this.value">
             <option${(m.currency||'COP')==='COP'?' selected':''} value="COP">COP</option>
             <option${m.currency==='USD'?' selected':''} value="USD">USD</option>
           </select>
-          <select style="flex:2;background:var(--s2);border:1px solid var(--bd);border-radius:6px;padding:6px;color:var(--t);font-family:'Sora',sans-serif;font-size:10px;outline:none" onchange="obData.goals[${i}].milestones[${mi}].account_id=this.value">
-            <option value="">— Pay from —</option>
-            ${obData.accounts.map(a=>`<option value="${a.tempId||''}"${m.account_id===a.tempId?' selected':''}>${a.icon} ${a.name}</option>`).join('')}
-          </select>
         </div>
       </div>`).join('')}
     </div>`:''}
-    <button onclick="if(!obData.goals[${i}].milestones)obData.goals[${i}].milestones=[];obData.goals[${i}].milestones.push({name:'',amount:0,date:''});renderObStep()" style="background:transparent;border:1px dashed var(--bd);border-radius:8px;padding:6px;color:var(--t2);font-family:'Sora',sans-serif;font-size:11px;cursor:pointer;width:100%">+ Add milestone</button>
+    <button onclick="if(!obData.goals[${i}].milestones)obData.goals[${i}].milestones=[];obData.goals[${i}].milestones.push({name:'',amount:0,monthly_contribution:0,date:'',currency:'COP'});renderObStep()" style="background:transparent;border:1px dashed var(--bd);border-radius:8px;padding:6px;color:var(--t2);font-family:'Sora',sans-serif;font-size:11px;cursor:pointer;width:100%">+ Add milestone</button>`}
   </div>`;
 }
-
 function updateObIncomeTotals(){
   const el = document.getElementById('ob-income-total');
   if(!el) return;
@@ -1277,12 +1387,20 @@ ${goals.map(g=>{
   const monthsLeft=Math.max(1,Math.ceil(daysLeft/30));
   const hasDeadline = g.deadline && new Date(g.deadline) < new Date(Date.now()+365*2*864e5);
   const msDetail=ms.map(m=>{
+    if(!m.date && m.monthly_contribution>0){
+      return `"${m.name}": no deadline, fixed contribution ${fmt(m.monthly_contribution)}/mo`;
+    }
+    if(!m.date) return `"${m.name}": no amount or date — named intention`;
     const mDays=Math.max(1,Math.ceil((new Date(m.date)-new Date())/864e5));
     const mMonths=Math.max(1,Math.ceil(mDays/30));
     return `"${m.name}": ${fmt(m.amount)} due ${m.date} (${mMonths}mo, min ${fmt(Math.ceil(m.amount/mMonths))}/mo, 1mo buffer ${fmt(Math.ceil(m.amount/Math.max(1,mMonths-1)))}/mo, 2mo buffer ${fmt(Math.ceil(m.amount/Math.max(1,mMonths-2)))}/mo)`;
   }).join(' | ');
   const isOpenEnded = !g.target && !g.deadline;
-  if(isOpenEnded) return `- ${g.icon} ${g.name}: OPEN-ENDED goal — no fixed amount or deadline. Allocate whatever is left after all other commitments. Treat as lowest priority flexible bucket.`;
+  if(isOpenEnded){
+    const urgencyMap = {'this-month':'VERY URGENT — needed this month','1-3-months':'urgent — needed in 1-3 months','3-6-months':'moderate — needed in 3-6 months','6-12-months':'low — needed in 6-12 months','no-rush':'true leftover bucket — no time pressure'};
+    const urgencyDesc = urgencyMap[g.urgency||'no-rush'];
+    return `- ${g.icon} ${g.name}: OPEN-ENDED goal (${urgencyDesc}). No fixed amount. Fund proportionally based on urgency relative to other goals. ${g.urgency==='no-rush'?'Allocate only true leftover.':'Prioritize vs fixed goals by urgency level.'}`;
+  }
   return `- ${g.icon} ${g.name}: target ${fmt(effectiveTarget)} COP, deadline ${g.deadline} (${monthsLeft}mo away), has_deadline:${hasDeadline}\n  Milestones: ${msDetail||'none set — no fixed deadline, user wants to save when possible'}`;
 }).join('\n')||'None'}
 
@@ -1522,7 +1640,7 @@ Respond ONLY in JSON:
                 const envsTotal = envRows.reduce((a,r)=>a+r.amount, 0);
 
                 // 3. Goals — split remaining proportionally per plan
-                const totalMonthlyGoals = (activePlan.allocations||[]).reduce((a,alloc)=>a+(alloc.monthly||0), 0);
+                const totalMonthlyGoals = (plan.allocations||[]).reduce((a,alloc)=>a+(alloc.monthly||0), 0);
                 const goalRows = [];
                 let goalsTotal = 0;
                 if(remaining > 0 && totalMonthlyGoals > 0){
@@ -1695,7 +1813,11 @@ Respond ONLY in JSON:
 Monthly income: ${fmt(monthlyIncome)} COP (${fmtUSD(monthlyIncome/currentTRM)} USD at TRM ${Math.round(currentTRM)}).
 Fixed: ${fmt(totalFixed)}/mo. Spending: ${fmt(totalSpending)}/mo. Available: ${fmt(unallocatedBase)}/mo.
 Goals: ${goals.map(g=>{
-  const ms=(g.milestones||[]).filter(m=>m.amount&&m.date).sort((a,b)=>new Date(a.date)-new Date(b.date));
+  const ms=(g.milestones||[]).filter(m=>m.amount||m.monthly_contribution||m.date).sort((a,b)=>{
+    if(!a.date) return 1;
+    if(!b.date) return -1;
+    return new Date(a.date)-new Date(b.date);
+  });
   return `${g.icon} ${g.name} — ${ms.map(m=>{
     const mMonths=Math.max(1,Math.ceil((new Date(m.date)-new Date())/864e5/30));
     return `${m.name} ${fmt(m.amount)} by ${m.date} (${mMonths}mo)`;
@@ -1755,6 +1877,14 @@ async function loadActivePlan(){
     const {data} = await sb.from('profiles').select('active_plan').eq('id', currentUser.id).single();
     if(data?.active_plan){
       activePlan = typeof data.active_plan === 'string' ? JSON.parse(data.active_plan) : data.active_plan;
+      // Recalculate briefing context from live data
+      window._briefingIncome = incomeSrc.reduce((a,s)=>{
+        const amtCOP = s.currency==='USD'?s.amount*currentTRM:s.amount;
+        const payments = s.freq==='weekly-day'?4.33:s.freq==='biweekly'?2:1;
+        return a+(amtCOP*payments);
+      },0);
+      window._briefingFixed = envelopes.filter(e=>e.type==='fixed').reduce((a,e)=>a+toCOP(e.monthly_allocation,e.currency),0);
+      window._briefingSpending = envelopes.filter(e=>e.type==='spending'&&e.name!=='General Savings').reduce((a,e)=>a+toCOP(e.monthly_allocation,e.currency),0);
     }
   }catch(e){
     console.error('Error loading plan:', e);
@@ -2261,14 +2391,16 @@ async function saveOnboarding(){
     // Save goals
     if(obData.goals.filter(g=>g.name&&g.deadline).length){
       const {data:savedGoals} = await sb.from('goals').insert(
-        obData.goals.filter(g=>g.name&&g.deadline).map(g=>({
+        obData.goals.filter(g=>g.name&&(g.deadline||g.goal_type==='open')).map(g=>({
           user_id:currentUser.id,
           name:g.name,
           icon:g.icon||'🎯',
-          target:g.target||0,
+          target:g.goal_type==='open'?0:(g.target||0),
           saved:0,
-          deadline:g.deadline,
-          flex:'fixed'
+          deadline:g.goal_type==='open'?null:g.deadline,
+          flex:g.goal_type==='open'?'flex':'fixed',
+          goal_type:g.goal_type||'fixed',
+          urgency:g.urgency||null
         }))
       ).select();
       if(savedGoals) goals = savedGoals.map(g=>({...g,milestones:[]}));
@@ -2345,7 +2477,16 @@ async function saveOnboarding(){
     console.error(e);
   }
 }
-
+let currentGoalType = 'fixed';
+function setGoalType(type){
+  currentGoalType = type;
+  document.getElementById('gm-btn-fixed').style.background = type==='fixed'?'var(--a)':'transparent';
+  document.getElementById('gm-btn-fixed').style.color = type==='fixed'?'#0d0f0e':'var(--t2)';
+  document.getElementById('gm-btn-open').style.background = type==='open'?'var(--a)':'transparent';
+  document.getElementById('gm-btn-open').style.color = type==='open'?'#0d0f0e':'var(--t2)';
+  document.getElementById('gm-fixed-fields').style.display = type==='fixed'?'block':'none';
+  document.getElementById('gm-open-fields').style.display = type==='open'?'block':'none';
+}
 // Event listeners for onboarding
 document.getElementById('ob-next').addEventListener('click', obNext);
 document.getElementById('ob-back').addEventListener('click', ()=>{
@@ -2411,7 +2552,11 @@ async function doAuth(){
 
 async function signOut(){
   await sb.auth.signOut();
-  currentUser=null;cats=[];txs=[];goals=[];accounts=[];
+  currentUser=null;cats=[];txs=[];goals=[];accounts=[];incomeSrc=[];envelopes=[];fixedExpenses=[];activePlan=null;
+  document.getElementById('user-name').textContent='—';
+  document.getElementById('user-av').textContent='?';
+  const mobName=document.getElementById('mob-user-name');if(mobName)mobName.textContent='—';
+  const mobAv=document.getElementById('mob-user-av');if(mobAv)mobAv.textContent='?';
   document.getElementById('app-shell').classList.remove('ready');
   document.getElementById('auth-screen').style.display='flex';
   document.getElementById('auth-email').value='';
@@ -2840,7 +2985,8 @@ function renderAccountDetail(accId){
 function renderGoals(){
   if(!goals.length){document.getElementById('goals-list').innerHTML=`<div style="text-align:center;padding:60px;color:var(--t2)"><div style="font-size:32px;margin-bottom:12px">◎</div><div>No goals yet</div></div>`;document.getElementById('all-milestones').innerHTML=`<div style="padding:16px 20px;font-size:12px;color:var(--t2)">No milestones yet</div>`;return;}
   document.getElementById('goals-list').innerHTML=goals.map(g=>{
-    const p=g.target>0?Math.min(100,Math.round(g.saved/g.target*100)):null;
+    const isOpenEnded = g.goal_type==='open';
+    const p=(!isOpenEnded&&g.target>0)?Math.min(100,Math.round(g.saved/g.target*100)):null;
     const nextMs=(g.milestones||[]).filter(m=>daysUntil(m.date)>=0).sort((a,b)=>new Date(a.date)-new Date(b.date))[0];
     const flexLabel={fixed:'🔒 Fixed',semiflex:'↔ Semi-flex',flex:'✓ Flexible'}[g.flex]||'';
     return `<div class="goal-card"><div style="display:flex;align-items:flex-start;justify-content:space-between">
@@ -2848,7 +2994,13 @@ function renderGoals(){
       <div><div style="font-size:15px;font-weight:600">${g.name}</div>
       <div style="display:flex;align-items:center;gap:8px;margin-top:4px">
         <span style="font-size:10px;color:var(--t2);padding:2px 8px;border-radius:20px;border:1px solid var(--bd)">${flexLabel}</span>
-        <span style="font-size:10px;color:var(--t2)">Due ${fmtDate(g.deadline)}</span>
+        ${!isOpenEnded&&g.deadline?`<span style="font-size:10px;color:var(--t2)">Due ${fmtDate(g.deadline)}</span>`:(`<span style="font-size:10px;color:var(--a2)">🪣 Open-ended · ${{
+  'this-month':'This month',
+  '1-3-months':'1–3 months',
+  '3-6-months':'3–6 months',
+  '6-12-months':'6–12 months',
+  'no-rush':'No rush'
+}[g.urgency||'no-rush']}</span>`)}
       </div></div></div>
       <div style="position:relative"><button class="gmb" data-gid="${g.id}" style="background:none;border:none;color:var(--t2);cursor:pointer;font-size:18px;padding:2px 8px;line-height:1">⋯</button>
       <div class="gmenu" id="gm-${g.id}">
@@ -3526,15 +3678,17 @@ async function deleteEditTx(){
 async function saveGoal(){
   const name=document.getElementById('gm-name').value.trim(),target=parseFloat(document.getElementById('gm-target').value),saved=parseFloat(document.getElementById('gm-saved').value)||0,deadline=document.getElementById('gm-deadline').value,icon=document.getElementById('gm-icon').value||'🎯',flex=document.getElementById('gm-flex').value;
  if(!name){showMsg('Fill in goal name','var(--a4)');return;}
+  const isOpenEnded = currentGoalType==='open';
+  const urgency = isOpenEnded ? document.getElementById('gm-urgency').value : null;
   const existingId=document.getElementById('gm-id').value;
   if(existingId){
-    await sb.from('goals').update({name,icon,target,saved,deadline,flex}).eq('id',existingId);
+    await sb.from('goals').update({name,icon,target:isOpenEnded?0:target,saved,deadline:isOpenEnded?null:deadline,flex:isOpenEnded?'flex':flex,goal_type:isOpenEnded?'open':'fixed',urgency}).eq('id',existingId);
     await sb.from('milestones').delete().eq('goal_id',existingId);
     if(pendingMilestones.length) await sb.from('milestones').insert(pendingMilestones.map(m=>({...m,goal_id:existingId,user_id:currentUser.id})));
     const idx=goals.findIndex(g=>g.id===existingId);if(idx>=0)goals[idx]={...goals[idx],name,icon,target,saved,deadline,flex,milestones:[...pendingMilestones]};
     showMsg(`"${name}" updated ✓`);
   } else {
-    const {data:g,error}=await sb.from('goals').insert({user_id:currentUser.id,name,icon,target,saved,deadline,flex}).select().single();
+    const {data:g,error}=await sb.from('goals').insert({user_id:currentUser.id,name,icon,target:isOpenEnded?0:target,saved,deadline:isOpenEnded?null:deadline,flex:isOpenEnded?'flex':flex,goal_type:isOpenEnded?'open':'fixed',urgency}).select().single();
     if(error){showMsg('Error saving goal','var(--a4)');return;}
     if(pendingMilestones.length) await sb.from('milestones').insert(pendingMilestones.map(m=>({...m,goal_id:g.id,user_id:currentUser.id})));
     goals.push({...g,milestones:[...pendingMilestones]});
@@ -3601,7 +3755,22 @@ function makeEnvelopeGrid(){
         </button>`).join('')
     : `<div style="font-size:12px;color:var(--t2);padding:8px 0;grid-column:1/-1">No spending envelopes found</div>`;
 }
-function renderMsModal(){const list=document.getElementById('ms-list');if(!pendingMilestones.length){list.innerHTML=`<div style="font-size:12px;color:var(--t2);padding:8px 0">No milestones yet.</div>`;return;}list.innerHTML=pendingMilestones.map((m,i)=>`<div class="ms-modal-item"><div style="flex:1"><div style="font-size:12px;font-weight:500;margin-bottom:4px">${m.name}</div><div style="font-size:11px;color:var(--t2)">${fmtDate(m.date)} · ${fmt(m.amount)}${m.refundable?' · refundable':''}</div></div><button class="ms-del" data-i="${i}" style="background:none;border:none;color:var(--a4);cursor:pointer;font-size:12px;padding:2px 6px">✕</button></div>`).join('');}
+function renderMsModal(){
+  const list=document.getElementById('ms-list');
+  if(!pendingMilestones.length){list.innerHTML=`<div style="font-size:12px;color:var(--t2);padding:8px 0">No milestones yet.</div>`;return;}
+  list.innerHTML=pendingMilestones.map((m,i)=>{
+    const hasDate = m.date && m.date.length > 0;
+    const hasAmount = m.amount > 0;
+    const hasMonthly = m.monthly_contribution > 0;
+    let detail = '';
+    if(hasAmount && hasDate) detail = `${fmt(m.amount)} ${m.currency||'COP'} · due ${fmtDate(m.date)}`;
+    else if(hasAmount && !hasDate) detail = `${fmt(m.amount)} ${m.currency||'COP'} · ${hasMonthly?fmt(m.monthly_contribution)+'/mo contribution':'no date set'}`;
+    else if(!hasAmount && hasDate) detail = `Date: ${fmtDate(m.date)} · amount TBD`;
+    else if(hasMonthly) detail = `${fmt(m.monthly_contribution)}/mo · no fixed target or date`;
+    else detail = 'Named intention · catches leftover';
+    return `<div class="ms-modal-item"><div style="flex:1"><div style="font-size:12px;font-weight:500;margin-bottom:4px">${m.name}</div><div style="font-size:11px;color:var(--t2)">${detail}</div></div><button class="ms-del" data-i="${i}" style="background:none;border:none;color:var(--a4);cursor:pointer;font-size:12px;padding:2px 6px">✕</button></div>`;
+  }).join('');
+}
 
 function populateAccountSelect(){
   const sel=document.getElementById('tx-account');
@@ -3625,9 +3794,13 @@ function openTxModal(){
 }
 
 function openGoalModal(id){
+  currentGoalType = 'fixed';
+  setGoalType('fixed');
   document.getElementById('gm-id').value=id||'';
   if(id){
     const g=goals.find(x=>x.id===id);
+    if(g?.goal_type==='open') setGoalType('open');
+    if(g?.urgency) document.getElementById('gm-urgency').value = g.urgency;
     document.getElementById('gm-title').textContent='Edit goal';document.getElementById('gm-sub').textContent='Update goal';document.getElementById('b-goal-save').textContent='Save changes';
     document.getElementById('gm-name').value=g.name;document.getElementById('gm-target').value=g.target;document.getElementById('gm-saved').value=g.saved;document.getElementById('gm-deadline').value=g.deadline;document.getElementById('gm-icon').value=g.icon;document.getElementById('gm-flex').value=g.flex||'fixed';
     pendingMilestones=[...(g.milestones||[]).map(m=>({...m}))];
@@ -3639,8 +3812,67 @@ function openGoalModal(id){
   }
   renderMsModal();openMo('mo-goal');
 }
-function openAddMs(){const name=prompt('Milestone name:');if(!name)return;const amt=parseFloat(prompt('Amount (COP $):'));if(!amt||isNaN(amt))return;const date=prompt('Due date (YYYY-MM-DD):');if(!date||!/^\d{4}-\d{2}-\d{2}$/.test(date)){showMsg('Invalid date format','var(--a4)');return;}const ref=prompt('Refundable? (yes/no):','no');pendingMilestones.push({name,amount:amt,date,refundable:ref&&ref.toLowerCase().startsWith('y')});renderMsModal();}
-function openAddSavings(id){const g=goals.find(x=>x.id===id);document.getElementById('sav-id').value=id;document.getElementById('sav-title').textContent=`Add to "${g.name}"`;document.getElementById('sav-sub').textContent=`${fmt(g.target-g.saved)} still needed`;document.getElementById('sav-amt').value='';openMo('mo-sav');}
+function openAddMs(){
+  const mo = document.createElement('div');
+  mo.className = 'mo open';
+  mo.id = 'mo-ms-temp';
+  mo.innerHTML = `<div class="mdl">
+    <div class="mtit">Add milestone</div>
+    <div class="msub">Amount and date are both optional</div>
+    <div class="field"><label>Name</label><input type="text" id="ms-name" placeholder="e.g. Flights, Fridge, Deposit"/></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="field"><label>Amount (COP $) <span style="color:var(--t3);font-weight:400">— optional</span></label><input type="number" id="ms-amount" placeholder="Leave blank if unknown"/></div>
+      <div class="field"><label>How much to save monthly? <span style="color:var(--t3);font-weight:400">— optional</span></label><input type="number" id="ms-monthly" placeholder="e.g. 200000"/><div style="font-size:10px;color:var(--t3);margin-top:3px">Leave blank and the AI will suggest an amount based on your income and priorities.</div></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="field"><label>Due date <span style="color:var(--t3);font-weight:400">— optional</span></label><input type="date" id="ms-date"/></div>
+      <div class="field"><label>Currency</label>
+        <select id="ms-currency">
+          <option value="COP">COP</option>
+          <option value="USD">USD</option>
+        </select>
+      </div>
+    </div>
+    <div class="field">
+      <label>Flexibility</label>
+      <select id="ms-flex">
+        <option value="hard">Hard deadline — must hit this date</option>
+        <option value="soft">Soft deadline — can shift if needed</option>
+      </select>
+    </div>
+    <div style="padding:10px 14px;background:rgba(102,245,200,.06);border:1px solid rgba(102,245,200,.15);border-radius:8px;font-size:12px;color:var(--t2);margin-bottom:14px;line-height:1.6">
+      💡 <strong>Amount only</strong> → steady monthly contribution. <strong>Date only</strong> → AI flags timing. <strong>Both</strong> → exact milestone, funded by urgency. <strong>Neither</strong> → named intention, catches leftover.
+    </div>
+    <div class="mfoot">
+      <button class="btn btn-g" onclick="document.getElementById('mo-ms-temp').remove()">Cancel</button>
+      <button class="btn btn-p" onclick="confirmAddMs()">Add milestone</button>
+    </div>
+  </div>`;
+  document.body.appendChild(mo);
+  document.getElementById('ms-date').value = '';
+  setTimeout(()=>document.getElementById('ms-name').focus(), 50);
+}
+
+function confirmAddMs(){
+  const name = document.getElementById('ms-name').value.trim();
+  if(!name){showMsg('Enter a milestone name','var(--a4)');return;}
+  const amount = parseFloat(document.getElementById('ms-amount').value)||0;
+  const monthly = parseFloat(document.getElementById('ms-monthly').value)||0;
+  const date = document.getElementById('ms-date').value;
+  const currency = document.getElementById('ms-currency').value;
+  const flex = document.getElementById('ms-flex').value;
+  pendingMilestones.push({name, amount, monthly_contribution: monthly, date: date||null, currency, flex, refundable: false});
+  document.getElementById('mo-ms-temp').remove();
+  renderMsModal();
+}
+function openAddSavings(id){
+  const g=goals.find(x=>x.id===id);
+  document.getElementById('sav-id').value=id;
+  document.getElementById('sav-title').textContent=`Add to "${g.name}"`;
+  document.getElementById('sav-sub').textContent=g.target>0?`${fmt(g.target-g.saved)} still needed`:'Open-ended — add whatever you want';
+  document.getElementById('sav-amt').value='';
+  openMo('mo-sav');
+}
 function openEditCat(id){const cat=catById(id);document.getElementById('cat-id').value=id;document.getElementById('cat-sub').textContent=`${cat.icon} ${cat.name}`;document.getElementById('cat-name').value=cat.name;document.getElementById('cat-limit').value=cat.budget_limit;openMo('mo-cat');}
 function openEditTx(id){const tx=txs.find(t=>t.id===id);etxSelCat=tx.category_id||'other';document.getElementById('etx-id').value=id;document.getElementById('etx-desc').value=tx.name;document.getElementById('etx-amt').value=Math.abs(tx.amount);document.getElementById('etx-date').value=tx.date;makeCatGrid('etx-cgrid',etxSelCat);openMo('mo-etx');}
 function openAccountModal(id){
