@@ -961,7 +961,6 @@ function attachNumberPreviews(){
       const val = parseFloat(inp.value);
       if(!inp.value||isNaN(val)){preview.textContent='';return;}
       const cur = getCurrency();
-      if(inp.id==='env-modal-due'||inp.id==='env-modal-due2a'||inp.id==='env-modal-due2b'||inp.id==='env-modal-weekday'){preview.textContent='';return;}
       preview.textContent = cur==='USD'
         ? '→ $'+val.toLocaleString('en-US')
         : '→ $'+val.toLocaleString('es-CO');
@@ -1540,7 +1539,7 @@ async function showPostOnboardingBriefing(){
   document.getElementById('briefing-skip').onclick = ()=>{ mo.remove(); goto('dashboard'); };
 
   try{
-    const monthlyIncome = incomeSrc.reduce((a,s)=>{
+    const monthlyIncome = obData.incomes.reduce((a,s)=>{
       const amtCOP = s.currency==='USD' ? s.amount*currentTRM : s.amount;
       const payments = s.freq==='weekly-day'?4.33:s.freq==='biweekly'?2:1;
       return a + (amtCOP * payments);
@@ -1606,7 +1605,11 @@ ${uniqueGoals.map(g=>{
   }
   // Case 3: deadline + no amount → buffer allocation
   if(!hasAmount && hasDeadlineDate && !ms.length){
-    return `- ${g.icon} ${g.name}: BUFFER GOAL — no fixed amount, deadline ${g.deadline} (${monthsLeft}mo away). Allocate a proportional buffer based on remaining income after fixed goals. More aggressive plans allocate more to this buffer.`;
+    const _bufBase = Math.round(unallocatedBase / Math.max(1, monthsLeft));
+    const _bufSteady = Math.max(10000, Math.round(_bufBase * 0.05));
+    const _bufBalanced = Math.max(10000, Math.round(_bufBase * 0.08));
+    const _bufFull = Math.max(10000, Math.round(_bufBase * 0.12));
+    return `- ${g.icon} ${g.name}: BUFFER GOAL — no fixed amount, deadline ${g.deadline} (${monthsLeft}mo away). REQUIRED monthly allocations: Steady=${fmt(_bufSteady)}/mo, Balanced=${fmt(_bufBalanced)}/mo, Full Send=${fmt(_bufFull)}/mo. Use EXACTLY these numbers.`;
   }
   // Case 1: amount + deadline (or has milestones)
   return `- ${g.icon} ${g.name}: target ${fmt(effectiveTarget)} COP, deadline ${g.deadline} (${monthsLeft}mo away)\n  Milestones: ${msDetail||'none set'}`;
@@ -1656,10 +1659,10 @@ Respond ONLY in JSON:
           "milestone": "Jun 11, 2026"
         },
         {
-          "name": "Trip to US",
-          "icon": "🌎",
+          "name": "Fund for Orlando",
+          "icon": "🏰",
           "type": "open_ended",
-          "monthly": 0,
+          "monthly": 456789,
           "detail": "saves whatever is left after all other commitments",
           "milestone": null
         }
@@ -1727,7 +1730,9 @@ Respond ONLY in JSON:
       // Always use live allocations
       plan.allocations = getLiveAllocations(plan);
       // Pre-compute proportional monthly amounts
-      const _bpAllocs=plan.allocations.filter(a=>a.type!=='savings'&&a.name!=='General Savings'&&a.monthly>0);
+      const _bpAllocsBase=plan.allocations.filter(a=>a.type!=='savings'&&a.name!=='General Savings'&&a.monthly>0);
+      const _bpAllocsLeft=plan.allocations.filter(a=>a.type!=='savings'&&a.name!=='General Savings'&&a.monthly===0);
+      const _bpAllocs=[..._bpAllocsBase,..._bpAllocsLeft];
       const _bpRem=Math.max(0,(window._briefingIncome||0)-(window._briefingFixed||0)-(window._briefingSpending||0));
       const _bpTotal=_bpAllocs.reduce((s,a)=>s+a.monthly,0)||1;
       let _bpAllocated=0;
@@ -1742,7 +1747,6 @@ Respond ONLY in JSON:
       }).join('');
       const detail = document.createElement('div');
       detail.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.75);backdrop-filter:blur(4px);z-index:4000;display:flex;align-items:flex-end;justify-content:center;';
-      detail.addEventListener('click',function(ev){if(ev.target===detail)detail.remove();});
       detail.innerHTML = `
         <div style="background:var(--s);border-radius:18px 18px 0 0;width:100%;max-width:560px;max-height:90vh;overflow-y:auto;padding:28px 24px 40px">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
@@ -1831,7 +1835,7 @@ Respond ONLY in JSON:
                     const dueDays = f.due_days||[f.due_day||1];
                     dueDays.forEach(day=>{
                       const dueDate = new Date(yr, mo+mOffset, day);
-                      if(dueDate < new Date(today.getFullYear(),today.getMonth(),today.getDate()) || dueDate > cutoff) return;
+                      if(dueDate < today || dueDate > cutoff) return;
                       const candidates = monthPaychecks.filter(p=>new Date(p.date.getFullYear(),p.date.getMonth(),p.date.getDate())<=dueDate);
                       if(candidates.length){
                         const assigned = candidates[candidates.length-1];
@@ -1844,7 +1848,7 @@ Respond ONLY in JSON:
                     });
                   } else {
                     const dueDate = new Date(yr, mo+mOffset, f.due_day||1);
-                    if(dueDate < new Date(today.getFullYear(),today.getMonth(),today.getDate()) || dueDate > cutoff) return;
+                    if(dueDate < today || dueDate > cutoff) return;
                     const candidates = monthPaychecks.filter(p=>new Date(p.date.getFullYear(),p.date.getMonth(),p.date.getDate())<=dueDate);
                     if(candidates.length){
                       const assigned = candidates[candidates.length-1];
@@ -2084,7 +2088,7 @@ Respond ONLY in JSON:
           <!-- TIMELINE VIEW -->
           <div id="plan-timeline-view" style="display:none;flex-direction:column;gap:6px;margin-bottom:16px">
             ${(()=>{
-              const today = new Date();
+              const today = new Date(); today.setHours(0,0,0,0);
               const urgencyMonthsMap = {'this-month':1,'1-3-months':3,'3-6-months':6,'6-12-months':12,'no-rush':99};
               const rows = [];
 
@@ -2154,6 +2158,7 @@ Respond ONLY in JSON:
                     });
                   } else if(g.target>0){
                     const monthsMeet = Math.ceil(g.target/effectiveMonthly);
+                    if(!g.target) return;
                     const metMonth = today.getFullYear()*12+today.getMonth()+monthsMeet;
                     const thisM = monthDate.getFullYear()*12+monthDate.getMonth();
                     const isMet = thisM >= metMonth;
@@ -2345,6 +2350,7 @@ async function showUnallocatedSuggestion(plan){
   const mo = document.createElement('div');
   mo.id = 'unallocated-modal';
   mo.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.75);backdrop-filter:blur(4px);z-index:5000;display:flex;align-items:center;justify-content:center;';
+  mo.addEventListener('click', e=>{ if(e.target===mo) mo.remove(); });
   mo.innerHTML = `
     <div style="background:var(--s);border:1px solid rgba(184,245,102,.25);border-radius:18px;padding:26px;width:480px;max-width:94vw;max-height:90vh;overflow-y:auto;display:flex;flex-direction:column;gap:16px;">
       <div style="display:flex;align-items:center;gap:12px">
@@ -2379,7 +2385,7 @@ async function showUnallocatedSuggestion(plan){
   const system = `You are a financial advisor inside Plata helping a Colombian user decide what to do with ${fmt(plan.unallocated)} COP (${fmtUSD(plan.unallocated/currentTRM)} USD) per month that is unallocated in their ${plan.name} budget plan.
 
 Their goals:
-${goals.map(g=>`- ${g.icon} ${g.name}: ${g.goal_type==='open'?`open-ended, urgency: ${g.urgency||'no-rush'}`:`deadline ${g.deadline}`}`).join('\n')||'None'}
+${goals.map(g=>`- ${g.icon} ${g.name}: ${g.goal_type==='open'?(g.deadline?`open-ended, deadline ${g.deadline}, urgency: ${g.urgency||'no-rush'}`:`open-ended, urgency: ${g.urgency||'no-rush'}`):`deadline ${g.deadline}`}`).join('\n')||'None'}
 
 Current plan allocations:
 ${(plan.allocations||[]).filter(a=>a.type!=='savings').map(a=>`- ${a.icon} ${a.name}: ${fmt(a.monthly)}/mo`).join('\n')}
@@ -2521,7 +2527,9 @@ function hidePlanStaleBanner(){
 window.showActivePlanDetail = function(){
   if(!activePlan) return;
   // Pre-compute proportional monthly amounts for display
-  const _apAllocs=(activePlan.allocations||[]).filter(a=>a.type!=='savings'&&a.name!=='General Savings'&&a.monthly>0);
+  const _apAllocsBase=(activePlan.allocations||[]).filter(a=>a.type!=='savings'&&a.name!=='General Savings'&&a.monthly>0);
+  const _apAllocsLeft=(activePlan.allocations||[]).filter(a=>a.type!=='savings'&&a.name!=='General Savings'&&a.monthly===0);
+  const _apAllocs=[..._apAllocsBase,..._apAllocsLeft];
   const _apInc=incomeSrc.reduce((a,s)=>{const c=s.currency==='USD'?s.amount*currentTRM:s.amount;return a+c*(s.freq==='weekly-day'?4.33:s.freq==='biweekly'?2:1);},0);
   const _apFx=envelopes.filter(e=>e.type==='fixed').reduce((a,e)=>a+toCOP(e.monthly_allocation,e.currency),0);
   const _apSp=envelopes.filter(e=>e.type==='spending').reduce((a,e)=>a+toCOP(e.monthly_allocation,e.currency),0);
@@ -2539,7 +2547,6 @@ window.showActivePlanDetail = function(){
   }).join('');
   const detail = document.createElement('div');
   detail.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.75);backdrop-filter:blur(4px);z-index:4000;display:flex;align-items:flex-end;justify-content:center;';
-  detail.addEventListener('click',function(ev){if(ev.target===detail)detail.remove();});
   detail.innerHTML = `
     <div style="background:var(--s);border-radius:18px 18px 0 0;width:100%;max-width:560px;max-height:90vh;overflow-y:auto;padding:28px 24px 40px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
@@ -2618,7 +2625,7 @@ window.showActivePlanDetail = function(){
                     const dueDays = f.due_days||[f.due_day||1];
                     dueDays.forEach(day=>{
                       const dueDate = new Date(yr, mo+mOffset, day);
-                      if(dueDate < new Date(today.getFullYear(),today.getMonth(),today.getDate()) || dueDate > cutoff) return;
+                      if(dueDate < today || dueDate > cutoff) return;
                       const candidates = monthPaychecks.filter(p=>new Date(p.date.getFullYear(),p.date.getMonth(),p.date.getDate())<=dueDate);
                       if(candidates.length){
                         const assigned = candidates[candidates.length-1];
@@ -2631,7 +2638,7 @@ window.showActivePlanDetail = function(){
                     });
                   } else {
                     const dueDate = new Date(yr, mo+mOffset, f.due_day||1);
-                    if(dueDate < new Date(today.getFullYear(),today.getMonth(),today.getDate()) || dueDate > cutoff) return;
+                    if(dueDate < today || dueDate > cutoff) return;
                     const candidates = monthPaychecks.filter(p=>new Date(p.date.getFullYear(),p.date.getMonth(),p.date.getDate())<=dueDate);
                     if(candidates.length){
                       const assigned = candidates[candidates.length-1];
@@ -2863,7 +2870,7 @@ window.showActivePlanDetail = function(){
       <!-- TIMELINE VIEW -->
           <div id="aplan-timeline-view" style="display:none;flex-direction:column;gap:6px;margin-bottom:16px">
             ${(()=>{
-              const today = new Date();
+              const today = new Date(); today.setHours(0,0,0,0);
               const urgencyMonthsMap = {'this-month':1,'1-3-months':3,'3-6-months':6,'6-12-months':12,'no-rush':99};
               const rows = [];
 
@@ -2931,6 +2938,7 @@ window.showActivePlanDetail = function(){
                     });
                   } else if(g.target>0){
                     const monthsMeet = Math.ceil(g.target/effectiveMonthly);
+                    if(!g.target) return;
                     const metMonth = today.getFullYear()*12+today.getMonth()+monthsMeet;
                     const thisM = monthDate.getFullYear()*12+monthDate.getMonth();
                     const isMet = thisM >= metMonth;
@@ -3459,7 +3467,7 @@ CATEGORIES:
 ${cats.map(c=>`- ${c.icon} ${c.name}: ${fmt(c.spent)} of ${fmt(c.budget_limit)} (${Math.round(c.spent/c.budget_limit*100)}%)`).join('\n')}
 
 GOALS:
-${goals.map(g=>{const next=(g.milestones||[]).filter(m=>daysUntil(m.date)>=0).sort((a,b)=>new Date(a.date)-new Date(b.date))[0];return `- ${g.icon} ${g.name}: ${fmt(g.saved)}/${fmt(g.target)}, deadline ${g.deadline}${next?`, next: ${fmt(next.amount)} in ${daysUntil(next.date)}d`:''}`}).join('\n')}
+${goals.map(g=>{const next=(g.milestones||[]).filter(m=>daysUntil(m.date)>=0).sort((a,b)=>new Date(a.date)-new Date(b.date))[0];const _urg={'this-month':'this month','1-3-months':'1-3 months','3-6-months':'3-6 months','6-12-months':'6-12 months','no-rush':'no rush'};const _t=g.deadline?'deadline '+g.deadline:g.urgency?'urgency: '+(_urg[g.urgency]||g.urgency)+' (not a fixed deadline)':'open-ended';return `- ${g.icon} ${g.name}: ${fmt(g.saved)}/${fmt(g.target)}, ${_t}${next?', next: '+fmt(next.amount)+' in '+daysUntil(next.date)+'d':''}`}).join('\n')}
 
 UPCOMING PAYMENTS:
 ${upcoming.map(m=>`- ${m.goalIcon} ${m.name}: ${fmt(m.amount)} in ${m.days} days`).join('\n')}
@@ -3589,7 +3597,7 @@ function renderDash(){
   document.getElementById('dash-sub').textContent=now.toLocaleDateString('en-US',{month:'long',year:'numeric'})+' · '+days+' days remaining';
   const totalCOP=totalBalanceCOP();
   document.getElementById('d-stats').innerHTML=
-    `<div class="sc cg"><div class="sl">Total Balance</div><div class="sv">${fmt(totalCOP)}</div><div class="ss">${accounts.length} account${accounts.length!==1?'s':''}</div></div>`+
+    `<div class="sc cg"><div class="sl">Goals Funded</div><div class="sv">${fmt(goals.reduce((a,g)=>a+(g.saved||0),0))}</div><div class="ss">${goals.filter(g=>g.saved>0).length} of ${goals.length} goals</div></div>`+
     `<div class="sc cr"><div class="sl">Spent</div><div class="sv">${fmt(spent)}</div><div class="ss"><span class="dn">↑</span> ${Math.round(spent/BUDGET*100)}% of budget</div></div>`+
 `<div class="sc ct"><div class="sl">Envelopes</div><div class="sv">${envelopes.filter(e=>e.type==='spending'||e.type==='fixed').length}</div><div class="ss"><span class="up">✓</span> active this month</div></div>`+    `<div class="sc cy"><div class="sl">Next payment due</div><div class="sv" id="next-due-amt">—</div><div class="ss" id="next-due-name">—</div></div>`;
   const upcoming=allMilestonesSorted();
@@ -3667,7 +3675,6 @@ function renderAccounts(){
           <div class="acc-icon" style="background:${a.color}22">${a.icon}</div>
           <div style="text-align:right">
             <button class="acc-edit" data-aid="${a.id}" style="background:none;border:none;color:var(--t3);cursor:pointer;font-size:12px;padding:2px 6px">✏️</button>
-          <button class="acc-del" data-aid="${a.id}" style="background:none;border:none;color:var(--a4);cursor:pointer;font-size:12px;padding:2px 6px">✕</button>
           </div>
         </div>
         <div class="acc-name">${a.name}</div>
@@ -3783,13 +3790,13 @@ function renderGoals(){
       <div><div style="font-size:15px;font-weight:600">${g.name}</div>
       <div style="display:flex;align-items:center;gap:8px;margin-top:4px">
         <span style="font-size:10px;color:var(--t2);padding:2px 8px;border-radius:20px;border:1px solid var(--bd)">${flexLabel}</span>
-        ${!isOpenEnded&&g.deadline?`<span style="font-size:10px;color:var(--t2)">Due ${fmtDate(g.deadline)}</span>`:(`<span style="font-size:10px;color:var(--a2)">🪣 Open-ended · ${{
+        ${g.deadline?`<span style="font-size:10px;color:var(--t2)">Due ${fmtDate(g.deadline)}</span>`:`<span style="font-size:10px;color:var(--a2)">🪣 Open-ended · ${{
   'this-month':'This month',
   '1-3-months':'1–3 months',
   '3-6-months':'3–6 months',
   '6-12-months':'6–12 months',
   'no-rush':'No rush'
-}[g.urgency||'no-rush']}</span>`)}
+}[g.urgency||'no-rush']}</span>`}
       </div></div></div>
       <div style="position:relative"><button class="gmb" data-gid="${g.id}" style="background:none;border:none;color:var(--t2);cursor:pointer;font-size:18px;padding:2px 8px;line-height:1">⋯</button>
       <div class="gmenu" id="gm-${g.id}">
@@ -3812,7 +3819,8 @@ function renderGoals(){
         if(!alloc||!alloc.monthly) return '';
         const today=new Date();
         const monthsIn=Math.max(1,Math.round((today-new Date(today.getFullYear(),0,1))/2592e6));
-        const projected=Math.min(g.target||alloc.monthly*12,alloc.monthly*monthsIn);
+        if(!g.target) return '';
+        const projected=Math.min(g.target,alloc.monthly*monthsIn);
         const actual=g.saved||0;
         const diff=actual-projected;
         if(Math.abs(diff)<10000) return '';
@@ -3898,8 +3906,6 @@ async function saveIncomeSource(){
   syncActivePlan();
   closeMo('mo-income');
   renderIncomes();
-  renderCurrent();
-  if(document.getElementById('yearplan-root')) renderYearPlan();
   showMsg(`"${label}" saved ✓`);
   checkPlanStaleness();
 }
@@ -3997,7 +4003,7 @@ function closePaydayModal(){
   paydayModalIndex = 0;
 }
 function checkPaydays(){
-  const today = new Date();
+  const today = new Date(); today.setHours(0,0,0,0);
   const dayOfMonth = today.getDate();
   const dayOfWeek = today.getDay();
   const todayStr = today.toISOString().slice(0,10);
@@ -4144,6 +4150,7 @@ async function showAISplitModal(s, amtCOP, isBonus=false){
   const mo = document.createElement('div');
   mo.id = 'split-modal';
   mo.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.75);backdrop-filter:blur(4px);z-index:800;display:flex;align-items:center;justify-content:center;';
+  mo.addEventListener('click', e=>{ if(e.target===mo) mo.remove(); });
   mo.innerHTML = `
     <div style="background:var(--s);border:1px solid var(--bd);border-radius:18px;padding:26px;width:480px;max-width:94vw;max-height:90vh;overflow-y:auto;">
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">
@@ -4212,10 +4219,55 @@ Respond ONLY in JSON: {"splits":[{"envelopeName":"name","envelopeIcon":"icon","a
     let splits;
     let summaryHtml;
     if(activePlan && !isBonus){
-      // Compute fundedMonth per alloc (same as year plan)
-      const _today = new Date();
-      const _yr = _today.getFullYear(), _mo = _today.getMonth();
-      const _fundedMonth = {};
+      // Run full paycheck sequence with carry-forward — same as per-paycheck view
+      const _spayToday = new Date(); _spayToday.setHours(0,0,0,0);
+      const _spayYr = _spayToday.getFullYear(), _spayMo = _spayToday.getMonth();
+
+      // Build all paychecks for next 2 months
+      const _spayAllPcs = [];
+      incomeSrc.forEach(function(src2){
+        const result=[];
+        if(src2.freq==='weekly-day'){
+          const d=new Date(_spayToday);
+          for(let i=0;i<60;i++){if(d.getDay()===parseInt(src2.day||5))result.push(new Date(d));d.setDate(d.getDate()+1);if(result.length>=10)break;}
+        } else {
+          const days=src2.dates||[1];
+          for(let mOff=-1;mOff<=3;mOff++) days.forEach(day=>result.push(new Date(_spayYr,_spayMo+mOff,day)));
+          result.sort((a,b)=>a-b);
+        }
+        result.filter(d=>d>=_spayToday).slice(0,8).forEach(d=>_spayAllPcs.push({date:d,source:src2}));
+      });
+      _spayAllPcs.sort((a,b)=>a.date-b.date);
+      const _spayCutoff = new Date(_spayYr,_spayMo+2,28);
+
+      // Build bill map with carry-forward
+      const _spayBillMap = {};
+      for(let mOff=0;mOff<=2;mOff++){
+        fixedExpenses.forEach(f=>{
+          const dueDays=(f.freq==='biweekly'||f.freq==='weekly')?(f.due_days||[f.due_day||1]):[f.due_day||1];
+          dueDays.forEach(day=>{
+            const dueDate=new Date(_spayYr,_spayMo+mOff,day);
+            if(dueDate<_spayToday||dueDate>_spayCutoff) return;
+            const cands=_spayAllPcs.filter(p=>new Date(p.date.getFullYear(),p.date.getMonth(),p.date.getDate())<=dueDate);
+            if(!cands.length) return;
+            const assigned=cands[cands.length-1];
+            const key=assigned.date.toDateString()+'__'+assigned.source.label;
+            if(!_spayBillMap[key]) _spayBillMap[key]=[];
+            if(!_spayBillMap[key].some(b=>b.name===f.name&&b._dueDate===dueDate.toDateString()))
+              _spayBillMap[key].push({...f,_dueDate:dueDate.toDateString(),due_day:day});
+          });
+        });
+      }
+
+      // Envelope carry-forward debt
+      const _spayEnvDebt = {};
+      envelopes.filter(e=>e.type==='spending').forEach(e=>{
+        _spayEnvDebt[e.id]=Math.max(0,Math.round(toCOP(e.monthly_allocation,e.currency))-(e.spent||0));
+      });
+
+      // Goal funded months
+      const _spayFunded = {};
+      const _pMk = _spayYr*12+_spayMo;
       (activePlan.allocations||[]).forEach(alloc=>{
         if(!alloc.monthly) return;
         if(alloc.milestone){
@@ -4227,49 +4279,57 @@ Respond ONLY in JSON: {"splits":[{"envelopeName":"name","envelopeIcon":"icon","a
               if(v>_amt)_amt=v;
             }
           }));
-          if(!_amt){
-            const aL=(alloc.name||'').toLowerCase();
-            goals.forEach(g=>(g.milestones||[]).forEach(m=>{
-              const mL=(m.name||'').toLowerCase();
-              const parts=aL.split(/[\s\-—]+/).filter(p=>p.length>3);
-              if(parts.some(p=>mL.includes(p))||mL.split(/[\s\-—]+/).filter(p=>p.length>3).some(p=>aL.includes(p))){
-                const v=m.currency==='USD'?Math.round(m.amount*currentTRM):(m.amount||0);
-                if(v>_amt)_amt=v;
-              }
-            }));
-          }
-          if(_amt&&alloc.monthly){
-            _fundedMonth[alloc.name]=_yr*12+_mo+Math.ceil(_amt/alloc.monthly)-1;
-          } else {
-            const _mDate=new Date(alloc.milestone);
-            _fundedMonth[alloc.name]=_mDate.getFullYear()*12+_mDate.getMonth();
-          }
-        } else {
-          _fundedMonth[alloc.name]=_yr*12+_mo+12;
+          if(_amt&&alloc.monthly) _spayFunded[alloc.name]=_spayYr*12+_spayMo+Math.ceil(_amt/alloc.monthly)-1;
+          else { const md=new Date(alloc.milestone); _spayFunded[alloc.name]=md.getFullYear()*12+md.getMonth(); }
+        } else { _spayFunded[alloc.name]=_spayYr*12+_spayMo+12; }
+      });
+
+      // Process each paycheck in order until we find the one matching this payday
+      const _thisKey = new Date().toDateString()+'__'+s.label;
+      // Find today's paycheck date (first matching paycheck for this source on/after today)  
+      const _thisPc = _spayAllPcs.find(p=>p.source.label===s.label&&new Date(p.date.getFullYear(),p.date.getMonth(),p.date.getDate())>=_spayToday);
+      const _thisDateStr = _thisPc ? _thisPc.date.toDateString()+'__'+s.label : _thisKey;
+
+      for(const pc of _spayAllPcs){
+        const pcCOP = pc.source.currency==='USD'?pc.source.amount*currentTRM:pc.source.amount;
+        const key = pc.date.toDateString()+'__'+pc.source.label;
+        const fixedRows=(_spayBillMap[key]||[]).map(f=>({name:f.name,icon:f.icon||'📄',amount:f.currency==='USD'?f.amount*currentTRM:f.amount,due:new Date(f._dueDate).toLocaleDateString('en-US',{month:'short',day:'numeric'})}));
+        const billsTotal=fixedRows.reduce((a,r)=>a+r.amount,0);
+        let remaining=pcCOP-billsTotal;
+        const envRows=[];
+        envelopes.filter(e=>e.type==='spending').forEach(e=>{
+          const needed=_spayEnvDebt[e.id]||0; if(needed<=0) return;
+          const canFund=Math.max(0,Math.min(needed,remaining));
+          envRows.push({name:e.name,icon:e.icon,amount:canFund,partial:canFund<needed});
+          _spayEnvDebt[e.id]-=canFund; remaining-=canFund;
+        });
+        const envsTotal=envRows.reduce((a,r)=>a+r.amount,0);
+        const afterBE=Math.round(Math.max(0,remaining));
+        const activeAllocs=(activePlan.allocations||[]).filter(a=>a.monthly>0&&a.name!=='General Savings'&&a.type!=='savings'&&(_spayFunded[a.name]===undefined||_pMk<=_spayFunded[a.name]));
+        const leftoverAllocs=(activePlan.allocations||[]).filter(a=>a.monthly===0&&a.name!=='General Savings'&&a.type!=='savings');
+        const allAllocs=[...activeAllocs,...leftoverAllocs];
+        const totalMonthly=activeAllocs.reduce((s,a)=>s+a.monthly,0)||1;
+        let gAlloc=0; const gRows=[];
+        allAllocs.forEach((alloc,i)=>{
+          const isFinal=_pMk===_spayFunded[alloc.name];
+          const isLast=i===allAllocs.length-1;
+          const isLeftover=alloc.monthly===0;
+          // Leftover goals share whatever remains after active goal allocations
+          const amount=isLast?Math.max(0,afterBE-gAlloc):isLeftover?0:Math.floor(afterBE*(alloc.monthly/totalMonthly));
+          gAlloc+=amount;
+          gRows.push({envelopeName:alloc.name,envelopeIcon:alloc.icon,amount,isFinal,
+            reasoning:isFinal?'✓ last payment — funded this month!':(alloc.milestone?`toward ${new Date(alloc.milestone).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}`:alloc.detail||'per plan')});
+        });
+
+        // This is the paycheck being confirmed
+        if(key===_thisDateStr){
+          splits=gRows;
+          // Store for display
+          mo._fixedRows=fixedRows; mo._envRows=envRows; mo._billsTotal=billsTotal; mo._envsTotal=envsTotal;
+          break;
         }
-      });
-      // Count paychecks this month to split evenly
-      const _monthStr = _today.toISOString().slice(0,7);
-      const _paychecksThisMonth = Math.max(1, incomeSrc.reduce((n,src)=>{
-        if(src.freq==='weekly-day') return n+4;
-        if(src.freq==='biweekly') return n+2;
-        return n+1;
-      },0));
-      const _pMk = _yr*12+_mo;
-      splits = (activePlan.allocations||[]).filter(a=>a.monthly>0&&a.name!=='General Savings'&&a.type!=='savings').filter(a=>{
-        return _fundedMonth[a.name]===undefined || _pMk<=_fundedMonth[a.name];
-      }).map(alloc=>{
-        const perPaycheck = Math.round(alloc.monthly/_paychecksThisMonth);
-        const isFinal = _pMk===_fundedMonth[alloc.name];
-        return {
-          envelopeName: alloc.name,
-          envelopeIcon: alloc.icon,
-          amount: perPaycheck,
-          reasoning: isFinal ? '✓ last payment — funded this month!' : (alloc.milestone ? `toward ${new Date(alloc.milestone).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}` : alloc.detail||'per plan'),
-          envelopeId: null,
-          isFinal
-        };
-      });
+      }
+
       summaryHtml = `<div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;padding:10px 14px;background:rgba(102,245,200,.06);border:1px solid rgba(102,245,200,.2);border-radius:8px">
         <span style="font-size:14px">✦</span>
         <div style="font-size:12px;color:var(--t2);line-height:1.6">Following your <strong style="color:var(--a2)">${activePlan.name}</strong> plan · ${splits.length} active goals this paycheck</div>
@@ -4286,11 +4346,28 @@ Respond ONLY in JSON: {"splits":[{"envelopeName":"name","envelopeIcon":"icon","a
     }
 
     const total = splits.reduce((s,x)=>s+x.amount,0);
-    const unallocated = amtCOP - total;
+    const unallocated = Math.round(amtCOP - (mo._billsTotal||0) - (mo._envsTotal||0) - total);
+
+    // Use rows computed by carry-forward sequence
+    const _billRows = mo._fixedRows || [];
+    const _envRows = mo._envRows || [];
 
     document.getElementById('split-content').innerHTML = `
       <div style="width:100%">
         ${summaryHtml}
+        ${_billRows.length?`<div style="font-size:10px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;color:var(--t3);margin-bottom:6px;margin-top:4px">Bills this paycheck</div>`+_billRows.map(r=>`
+          <div style="display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid var(--bd)">
+            <div style="font-size:18px;width:28px;text-align:center">${r.icon}</div>
+            <div style="flex:1"><div style="font-size:13px;font-weight:500">${r.name}</div><div style="font-size:11px;color:var(--a3)">Due ${r.due}</div></div>
+            <div style="font-family:'DM Mono',monospace;font-size:13px;color:var(--a4)">-${fmt(r.amount)}</div>
+          </div>`).join(''):''}
+        ${_envRows.length?`<div style="font-size:10px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;color:var(--t3);margin-bottom:6px;margin-top:10px">Spending envelopes</div>`+_envRows.map(r=>`
+          <div style="display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid var(--bd)">
+            <div style="font-size:18px;width:28px;text-align:center">${r.icon}</div>
+            <div style="flex:1"><div style="font-size:13px;font-weight:500">${r.name}</div></div>
+            <div style="font-family:'DM Mono',monospace;font-size:13px;color:var(--t2)">-${fmt(r.amount)}</div>
+          </div>`).join(''):''}
+        ${splits.length?`<div style="font-size:10px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;color:var(--t3);margin-bottom:6px;margin-top:10px">Goals</div>`:''}
         ${splits.map((split,i)=>`
           <div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--bd)">
             <div style="font-size:20px;width:28px;text-align:center">${split.envelopeIcon||'📦'}</div>
@@ -4301,10 +4378,10 @@ Respond ONLY in JSON: {"splits":[{"envelopeName":"name","envelopeIcon":"icon","a
             <input type="number" value="${split.amount}" data-idx="${i}" class="split-amt-input"
               style="width:110px;background:var(--s2);border:1px solid var(--bd);border-radius:8px;padding:7px 10px;color:var(--a);font-family:'DM Mono',monospace;font-size:13px;font-weight:500;outline:none;text-align:right"/>
           </div>`).join('')}
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;margin-top:4px">
+        ${Math.abs(unallocated)>100?`<div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;margin-top:4px">
           <div style="font-size:12px;color:var(--t2)">Unallocated</div>
           <div id="split-unallocated" style="font-family:'DM Mono',monospace;font-size:14px;font-weight:500;color:${unallocated>=0?'var(--a)':'var(--a4)'}">${fmt(unallocated)}</div>
-        </div>
+        </div>`:''}
       </div>`;
 
     mo._splits = splits;
@@ -4321,8 +4398,35 @@ Respond ONLY in JSON: {"splits":[{"envelopeName":"name","envelopeIcon":"icon","a
     });
 
     document.getElementById('split-confirm').style.display='block';
-    document.getElementById('split-confirm').onclick = ()=>{
-      showMsg('Split noted ✓');
+    document.getElementById('split-confirm').onclick = async ()=>{
+      // Apply goal allocations to goal.saved
+      if(activePlan && mo._splits){
+        for(const split of mo._splits){
+          if(!split.amount||split.amount<=0) continue;
+          // Find matching goal by name
+          const sLow=(split.envelopeName||'').toLowerCase();
+          // 1. Exact match
+          let goal = goals.find(g=>(g.name||'').toLowerCase()===sLow);
+          // 2. One fully contains the other
+          if(!goal) goal = goals.find(g=>{
+            const gLow=(g.name||'').toLowerCase();
+            return gLow===sLow||gLow.includes(sLow)||sLow.includes(gLow);
+          });
+          // 3. All significant words match (avoid partial word collisions like "chandler")
+          if(!goal) goal = goals.find(g=>{
+            const gLow=(g.name||'').toLowerCase();
+            const words=sLow.split(/[-—\s]+/).filter(p=>p.length>3);
+            return words.length>0&&words.every(p=>gLow.includes(p));
+          });
+          if(goal){
+            goal.saved=(goal.saved||0)+split.amount;
+            await sb.from('goals').update({saved:goal.saved}).eq('id',goal.id);
+          }
+        }
+        syncActivePlan();
+        renderCurrent();
+      }
+      showMsg('Split applied ✓');
       mo.remove();
     };
 
@@ -4569,16 +4673,16 @@ async function saveGoal(){
     if(pendingMilestones.length) await sb.from('milestones').insert(pendingMilestones.map(m=>({...m,goal_id:existingId,user_id:currentUser.id})));
     const idx=goals.findIndex(g=>g.id===existingId);
     if(idx>=0) goals[idx]={...goals[idx],name,icon,target,saved,deadline,flex,goal_type,urgency,milestones:[...pendingMilestones]};
-    showMsg(`"${name}" updated ✓`);
+    syncActivePlan();renderCurrent();showMsg(`"${name}" updated ✓`);
     checkPlanStaleness();
   } else {
     const {data:g,error}=await sb.from('goals').insert({user_id:currentUser.id,name,icon,target,saved,deadline,flex,goal_type,urgency}).select().single();
     if(error){showMsg('Error saving goal','var(--a4)');return;}
     if(pendingMilestones.length) await sb.from('milestones').insert(pendingMilestones.map(m=>({...m,goal_id:g.id,user_id:currentUser.id})));
     goals.push({...g,milestones:[...pendingMilestones]});
-    showMsg(`Goal "${name}" created!`);
+    syncActivePlan();renderCurrent();showMsg(`Goal "${name}" created!`);
   }
-  syncActivePlan();closeMo('mo-goal');renderCurrent();if(document.getElementById('yearplan-root')) renderYearPlan();checkPlanStaleness();
+  syncActivePlan();closeMo('mo-goal');renderCurrent();checkPlanStaleness();
 }
 
 async function saveSavings(){
@@ -4588,7 +4692,7 @@ async function saveSavings(){
   const newSaved=Math.min(g.target,g.saved+amt);
   await sb.from('goals').update({saved:newSaved}).eq('id',id);
   g.saved=newSaved;
-  closeMo('mo-sav');renderCurrent();showMsg(`${fmt(amt)} added to "${g.name}" ✓`);
+  closeMo('mo-sav');syncActivePlan();renderCurrent();showMsg(`${fmt(amt)} added to "${g.name}" ✓`);
 }
 
 async function saveCat(){
@@ -4596,7 +4700,7 @@ async function saveCat(){
   if(!name||!limit){showMsg('Fill in name and limit','var(--a4)');return;}
   await sb.from('categories').update({name,budget_limit:limit}).eq('id',id).eq('user_id',currentUser.id);
   const cat=catById(id);cat.name=name;cat.budget_limit=limit;
-  closeMo('mo-cat');renderCurrent();showMsg(`${cat.icon} ${name} updated ✓`);
+  closeMo('mo-cat');syncActivePlan();renderCurrent();showMsg(`${cat.icon} ${name} updated ✓`);
 }
 
 async function saveAccount(){
@@ -4610,12 +4714,12 @@ async function saveAccount(){
   if(id){
     await sb.from('accounts').update({name,icon,currency,balance,color}).eq('id',id);
     const acc=accById(id);if(acc)Object.assign(acc,{name,icon,currency,balance,color});
-    showMsg(`${icon} ${name} updated ✓`);
+    syncActivePlan();renderSettingsEnvelopes();showMsg(`${icon} ${name} updated ✓`);
   } else {
     const {data,error}=await sb.from('accounts').insert({user_id:currentUser.id,name,icon,currency,balance,color,is_primary:accounts.length===0}).select().single();
     if(error){showMsg('Error saving account','var(--a4)');return;}
     accounts.push(data);
-    showMsg(`${icon} ${name} added!`);
+    syncActivePlan();renderSettingsEnvelopes();showMsg(`${icon} ${name} added!`);
   }
   closeMo('mo-account');renderCurrent();
 }
@@ -4871,18 +4975,15 @@ function renderSettingsEnvelopes(){
   el.innerHTML=`<div class="ss-sec">`+envelopes.map(e=>{
     const typeColor = e.type==='fixed'?'var(--a3)':e.type==='savings'?'var(--a5)':'var(--a2)';
     const fe = e.type==='fixed' ? fixedExpenses.find(f=>f.name===e.name) : null;
-    const freqLabel = fe ? (fe.freq==='biweekly'?'Biweekly':fe.freq==='weekly'?'Weekly':'Monthly') : '';
-    const dueLabel = fe ? (fe.due_days&&fe.due_days.length?`due ${fe.due_days.join(' & ')}`:`due day ${fe.due_day||'—'}`) : '';
-    const detail = e.type==='fixed' ? `${freqLabel} · ${dueLabel}` : e.type==='spending' ? 'Spending envelope' : 'Savings';
+    const freqStr = fe ? (fe.freq==='biweekly'?`Biweekly · days ${(fe.due_days||[fe.due_day]).join(' & ')}`:fe.freq==='weekly'?`Weekly · every ${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][fe.due_day||5]}`:`Monthly · day ${fe.due_day||'—'}`) : '';
     return `<div class="ss-row">
       <div style="display:flex;align-items:center;gap:10px">
         <div style="font-size:18px">${e.icon}</div>
         <div>
           <div style="font-size:13px;font-weight:500">${e.name}</div>
           <div style="font-size:11px;color:var(--t2);margin-top:2px">
-            <span style="color:${typeColor}">${e.type}</span> · ${e.currency==='USD'?fmtUSD(e.monthly_allocation)+' USD':fmt(e.monthly_allocation)+'/mo'}
+            <span style="color:${typeColor}">${e.type}</span> · ${fmt(e.monthly_allocation)}/mo${freqStr?` · ${freqStr}`:''}
           </div>
-          <div style="font-size:10px;color:var(--t3);margin-top:1px">${detail}</div>
         </div>
       </div>
       <div style="display:flex;gap:6px">
@@ -5020,7 +5121,6 @@ function openEnvelopeModal(id){
   document.getElementById('env-modal-name').value = env?.name||'';
   document.getElementById('env-modal-icon').value = env?.icon||'📦';
   document.getElementById('env-modal-amount').value = env?.monthly_allocation||'';
-  document.querySelectorAll('#mo-envelope .num-preview').forEach(p=>p.textContent='');
   document.getElementById('env-modal-currency').value = env?.currency||'COP';
   const type = env?.type||'spending';
   document.getElementById('env-modal-type').value = type;
@@ -5051,12 +5151,10 @@ async function saveEnvelopeModal(){
   const dueDay = parseInt(document.getElementById('env-modal-due').value)||null;
   const freq = document.getElementById('env-modal-freq').value||'monthly';
   if(!name||!amount||isNaN(amount)){showMsg('Fill in name and amount','var(--a4)');return;}
-  if(!id && envelopes.some(e=>e.name.toLowerCase()===name.toLowerCase())){showMsg('An envelope named "'+name+'" already exists','var(--a4)');return;}
   const payload = {name,icon,type,monthly_allocation:amount,currency};
-  // due_day belongs to fixed_expenses only — never add to envelopes payload
+  if(type==='fixed' && dueDay) payload.due_day=dueDay;
   if(id){
-    const {error:updErr}=await sb.from('envelopes').update(payload).eq('id',id);
-    if(updErr){showMsg('Error updating envelope — '+updErr.message,'var(--a4)');console.error(updErr);return;}
+    await sb.from('envelopes').update(payload).eq('id',id);
     const env=envelopes.find(e=>e.id===id);
     if(env) Object.assign(env,payload);
     // Update fixed_expenses too if fixed type
@@ -5067,8 +5165,8 @@ async function saveEnvelopeModal(){
   const weekday=parseInt(document.getElementById('env-modal-weekday').value)||5;
   const dueDays=freq==='biweekly'&&due2a&&due2b?[due2a,due2b]:null;
   const fePayload={name,icon,amount,currency,freq,
-    due_day:freq==='weekly'?weekday:(freq==='biweekly'?(due2a||1):(dueDay||1))};
-  if(dueDays) fePayload.due_days=dueDays;
+    due_day:freq==='weekly'?weekday:(freq==='biweekly'?(due2a||1):(dueDay||1)),
+    due_days:dueDays};
       if(existing){
         await sb.from('fixed_expenses').update(fePayload).eq('id',existing.id);
         Object.assign(existing,fePayload);
@@ -5077,30 +5175,32 @@ async function saveEnvelopeModal(){
         if(fe) fixedExpenses.push(fe);
       }
     }
-    showMsg(`${icon} ${name} updated ✓`);
+    syncActivePlan();renderSettingsEnvelopes();showMsg(`${icon} ${name} updated ✓`);
   } else {
-    const {data,error}=await sb.from('envelopes').insert({user_id:currentUser.id,...payload}).select().single();
-    if(error||!data){showMsg('Error saving envelope — '+(error?.message||'no data returned'),'var(--a4)');console.error(error);return;}
-    envelopes.push({...data,spent:0});
+    const {data}=await sb.from('envelopes').insert({user_id:currentUser.id,...payload}).select().single();
+    if(data) envelopes.push({...data,spent:0});
     // Also insert into fixed_expenses if fixed type
     if(type==='fixed'){
       const due2a2=parseInt(document.getElementById('env-modal-due2a').value)||null;
       const due2b2=parseInt(document.getElementById('env-modal-due2b').value)||null;
       const weekday2=parseInt(document.getElementById('env-modal-weekday').value)||5;
-      const feInsert={user_id:currentUser.id,name,icon,amount,currency,freq,
-        due_day:freq==='weekly'?weekday2:(freq==='biweekly'?(due2a2||1):(dueDay||1))};
-      if(freq==='biweekly'&&due2a2&&due2b2) feInsert.due_days=[due2a2,due2b2];
-      const {data:fe,error:feErr}=await sb.from('fixed_expenses').insert(feInsert).select().single();
-      if(feErr){showMsg('Fixed expense error: '+feErr.message,'var(--a4)');console.error(feErr);}
-      if(fe) fixedExpenses.push(fe);
+      const fePayload2={name,icon,amount,currency,freq,
+        due_day:freq==='weekly'?weekday2:(freq==='biweekly'?(due2a2||1):(dueDay||1)),
+        due_days:freq==='biweekly'&&due2a2&&due2b2?[due2a2,due2b2]:null};
+      const existingFe=fixedExpenses.find(f=>f.name===name);
+      if(existingFe){
+        await sb.from('fixed_expenses').update(fePayload2).eq('id',existingFe.id);
+        Object.assign(existingFe,fePayload2);
+      } else {
+        const {data:fe}=await sb.from('fixed_expenses').insert({user_id:currentUser.id,...fePayload2}).select().single();
+        if(fe) fixedExpenses.push(fe);
+      }
     }
-    showMsg(`${icon} ${name} added!`);
+    syncActivePlan();renderSettingsEnvelopes();showMsg(`${icon} ${name} added!`);
   }
   syncActivePlan();
   closeMo('mo-envelope');
   renderSettingsEnvelopes();
-  renderCurrent();
-  if(document.getElementById('yearplan-root')) renderYearPlan();
   checkPlanStaleness();
 }
 
@@ -5195,22 +5295,11 @@ const cbtn=t.closest('.cbtn');if(cbtn){
   const gas=t.closest('.gas');if(gas){closeAllMenus();openAddSavings(gas.dataset.gid);return;}
   const ged=t.closest('.ged');if(ged){closeAllMenus();openGoalModal(ged.dataset.gid);return;}
   const gfund=t.closest('.gfund');if(gfund){closeAllMenus();const gid=gfund.dataset.gid;const g=goals.find(x=>x.id===gid);if(!g)return;const nowFunded=!g.funded;g.funded=nowFunded;sb.from('goals').update({funded:nowFunded}).eq('id',gid);syncActivePlan();renderGoals();showMsg(nowFunded?`"${g.name}" marked as funded ✅`:`"${g.name}" unmarked`);checkPlanStaleness();return;}
-  const gde=t.closest('.gde');if(gde){closeAllMenus();const gid=gde.dataset.gid;const g=goals.find(x=>x.id===gid);if(!confirm(`Delete "${g?.name}"?`))return;sb.from('goals').delete().eq('id',gid);goals=goals.filter(x=>x.id!==gid);syncActivePlan();renderGoals();renderCurrent();if(document.getElementById('yearplan-root')) renderYearPlan();checkPlanStaleness();showMsg('Goal deleted');return;}
+  const gde=t.closest('.gde');if(gde){closeAllMenus();const gid=gde.dataset.gid;const g=goals.find(x=>x.id===gid);if(!confirm(`Delete "${g?.name}"?`))return;sb.from('goals').delete().eq('id',gid);goals=goals.filter(x=>x.id!==gid);syncActivePlan();renderGoals();showMsg('Goal deleted');return;}
   const msd=t.closest('.ms-del');if(msd){pendingMilestones.splice(+msd.dataset.i,1);renderMsModal();return;}
   // Account edit/deposit/withdraw
-  const accDel=t.closest('.acc-del');
-  if(accDel){
-    const acc=accounts.find(a=>a.id===accDel.dataset.aid);
-    if(!acc||!confirm('Delete "'+acc.name+'"? This cannot be undone.')) return;
-    sb.from('accounts').delete().eq('id',acc.id).then(()=>{
-      accounts=accounts.filter(a=>a.id!==acc.id);
-      renderAccounts();
-      showMsg(acc.name+' deleted');
-    });
-    return;
-  }
   const accEdit=t.closest('.acc-edit');if(accEdit){openAccountModal(accEdit.dataset.aid);return;}
-  const accCard=t.closest('.acc-card');if(accCard&&!t.closest('.acc-edit')&&!t.closest('.acc-del')&&!t.closest('.acc-deposit')&&!t.closest('.acc-withdraw')){openAccountDrawer(accCard.dataset.aid);return;}
+  const accCard=t.closest('.acc-card');if(accCard&&!t.closest('.acc-edit')&&!t.closest('.acc-deposit')&&!t.closest('.acc-withdraw')){openAccountDrawer(accCard.dataset.aid);return;}
 if(t.id==='acc-drawer-close'||t.id==='acc-drawer-overlay'){closeAccountDrawer();return;}
 if(t.id==='drawer-see-all'&&drawerAccId){
   closeAccountDrawer();
@@ -5247,9 +5336,6 @@ if(idel){
   incomeSrc=incomeSrc.filter(s=>s.id!==sid);
   syncActivePlan();
   renderIncomes();
-  renderCurrent();
-  if(document.getElementById('yearplan-root')) renderYearPlan();
-  checkPlanStaleness();
   return;
 }const incedit=t.closest('.inc-edit');if(incedit){openIncomeModal(incedit.dataset.sid);return;}
 const pdConfirm=t.closest('.payday-confirm');if(pdConfirm){confirmPayday(pdConfirm.dataset.sid);return;}
@@ -5273,10 +5359,7 @@ if(envDel){
   sb.from('envelopes').delete().eq('id',envDel.dataset.eid).then(()=>{
     envelopes=envelopes.filter(e=>e.id!==envDel.dataset.eid);
     syncActivePlan();
-    renderSettingsEnvelopes();
-    renderCurrent();
-    if(document.getElementById('yearplan-root')) renderYearPlan();
-    showMsg('Envelope deleted');
+    syncActivePlan();renderSettingsEnvelopes();showMsg('Envelope deleted');
     checkPlanStaleness();
   });
   return;
@@ -5404,7 +5487,10 @@ function getLiveAllocations(plan) {
         (deadlineDate.getFullYear()-today.getFullYear())*12+(deadlineDate.getMonth()-today.getMonth()));
       const applyOffset=!isOpenEnded; // only apply offset for fixed milestone goals
       monthsToFund=Math.max(1,monthsToDeadline-(applyOffset?offset:0));
-      if(!targetAmt) targetAmt=Math.ceil(liveRemaining*0.1); // buffer for deadline-only goals
+      if(!targetAmt){
+        // Buffer goal: trust AI's monthly value as-is
+        return {...alloc};
+      }
       const fundedDate=new Date(today.getFullYear(),today.getMonth()+monthsToFund-1,1);
       detail='funded by '+fundedDate.toLocaleDateString('en-US',{month:'short',year:'numeric'});
     } else {
@@ -5435,7 +5521,10 @@ function syncActivePlan() {
   window._briefingIncome = liveIncome;
   window._briefingFixed = liveFixed;
   window._briefingSpending = liveSpending;
-  // Do NOT hide stale banner here — let checkPlanStaleness() decide
+  // Plan is always in sync - hide stale banner
+  hidePlanStaleBanner();
+  // Update plan snapshot
+  window._planSnapshot = getCurrentBudgetSnapshot();
 }
 
 function renderYearPlan() {
@@ -5452,7 +5541,7 @@ function renderYearPlan() {
     return;
   }
 
-  const today = new Date();
+  const today = new Date(); today.setHours(0,0,0,0);
   const yr = today.getFullYear();
   const mo = today.getMonth();
 
@@ -5497,7 +5586,10 @@ function renderYearPlan() {
       dueDays.forEach(function(day) {
         var dueDate = new Date(yr, mo + mOff, day);
         if (dueDate < today || dueDate > horizon) return;
-        var candidates = allPaychecks.filter(function(p){ return p.date <= dueDate; });
+        var candidates = allPaychecks.filter(function(p){
+          // Compare date-only (ignore time) so same-day paychecks cover same-day bills
+          return new Date(p.date.getFullYear(),p.date.getMonth(),p.date.getDate()) <= dueDate;
+        });
         if (!candidates.length) return;
         var assigned = candidates[candidates.length - 1];
         var key = assigned.date.toDateString() + '__' + assigned.source.label;
