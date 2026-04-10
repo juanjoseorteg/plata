@@ -2780,11 +2780,12 @@ window.showActivePlanDetail = function(){
 
               // Pre-compute funded-by month per alloc
               const _aplanFundedMonth = {};
+              const _aplanToday = new Date(); const _aplanYr = _aplanToday.getFullYear(), _aplanMo = _aplanToday.getMonth();
               (activePlan.allocations||[]).forEach(alloc=>{
                 if(!alloc.monthly) return;
                 if(alloc.milestone){
                   const _md = new Date(alloc.milestone);
-                  if(isNaN(_md.getTime())){ _aplanFundedMonth[alloc.name]=_spayYr*12+_spayMo+12; return; }
+                  if(isNaN(_md.getTime())){ _aplanFundedMonth[alloc.name]=_aplanYr*12+_aplanMo+12; return; }
                   let _amt = 0;
                   const _mStr = _md.toISOString().slice(0,10);
                   goals.forEach(g=>(g.milestones||[]).forEach(m=>{
@@ -2880,7 +2881,8 @@ window.showActivePlanDetail = function(){
                   const perPaycheck=Math.floor(_afterBillsEnvs*(alloc.monthly/_totalPlanMonthly));
                   let note='';
                   if(alloc.milestone){
-                    const mDate=new Date(alloc.milestone);
+                    const mDate=safeDate(alloc.milestone);
+                    if(!mDate) return;
                     const days=Math.ceil((mDate-today)/864e5);
                     if(days<=0) return;
                     note=_pMk===_aplanFundedMonth[alloc.name]?`<span style="color:var(--a)">✓ last payment · funded this month</span>`:(days<=14?`⚠️ due ${alloc.milestone}`:`toward ${alloc.milestone}`);
