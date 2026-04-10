@@ -31,12 +31,41 @@
   #pg-yearplan{padding:0;}
   #yearplan-root{padding:0 12px!important;padding-top:72px!important;}
   .yp-month-card{border-radius:12px;}
-  #yp-header{padding:12px 0 10px;}
+  #yp-header{padding:12px 0 10px;top:72px!important;}
   #yp-goal-bars{overflow-x:auto;flex-wrap:nowrap!important;padding-bottom:4px;}
   .acc-drawer{width:100%!important;max-width:100vw!important;}
   .mo{align-items:flex-end;}
   .mdl{border-radius:18px 18px 0 0;max-height:92vh;}
   .payday-modal-box{border-radius:14px;}
+  /* Category grid: 2 cols on mobile instead of 4 */
+  .cgrid{grid-template-columns:repeat(2,1fr)!important;}
+  /* Modal inner grids: stack on mobile */
+  .mdl [style*="grid-template-columns:1fr 1fr"],
+  .mdl [style*="grid-template-columns:1fr 80px"],
+  .mdl [style*="grid-template-columns:1fr 72px"]{grid-template-columns:1fr!important;}
+  /* Account detail stats: 1 col on mobile */
+  #acc-detail-stats{grid-template-columns:1fr!important;}
+  /* Split modal: bottom sheet style */
+  #split-modal{align-items:flex-end!important;}
+  #split-modal > div{border-radius:18px 18px 0 0!important;width:100%!important;max-width:100vw!important;max-height:92vh!important;}
+  /* Payday modal: full width */
+  .payday-modal-box{width:100%!important;max-width:100vw!important;border-radius:18px 18px 0 0!important;}
+  .payday-modal-overlay{align-items:flex-end!important;}
+  /* Shortcuts page: IDs table responsive */
+  #shortcut-ids-list [style*="display:flex"]{flex-wrap:wrap;}
+  #shortcut-auth, #shortcut-token{font-size:10px!important;}
+  /* Active plan card: stack on mobile */
+  #active-plan-card{flex-direction:column!important;align-items:flex-start!important;}
+  /* Year plan paycheck card amounts: don't truncate */
+  .yp-month-card [style*="font-family:'DM Mono'"]{white-space:normal!important;}
+}
+@media(max-width:900px){
+  .ai-toast{bottom:80px!important;right:16px!important;left:16px!important;width:auto!important;}
+}
+@media(max-width:400px){
+  .badge{display:none;}
+  .sv{font-size:18px;}
+  .pt{font-size:22px;}
 }
 @media(min-width:901px){
   .mob-menu-btn{display:none!important;}
@@ -271,6 +300,14 @@ nav{display:flex;flex-direction:column;gap:2px;}
 .tx-type-btn.active.expense{background:rgba(245,102,102,.15);color:var(--a4);}
 .tx-type-btn.active.income{background:rgba(184,245,102,.15);color:var(--a);}
 /* ACCOUNTS PAGE */
+.acc-stats-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;}
+@media(max-width:600px){.acc-stats-grid{grid-template-columns:1fr;}}
+.modal-grid-2col{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.modal-grid-name-icon{display:grid;grid-template-columns:1fr 80px;gap:10px;}
+@media(max-width:600px){
+  .modal-grid-2col{grid-template-columns:1fr!important;}
+  .modal-grid-name-icon{grid-template-columns:1fr 64px!important;}
+}
 .accounts-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px;}
 .acc-card{background:var(--s);border:1px solid var(--bd);border-radius:16px;padding:20px;position:relative;overflow:hidden;cursor:pointer;transition:border-color .15s;}
 .acc-card:hover{border-color:var(--t3);}
@@ -284,7 +321,7 @@ nav{display:flex;flex-direction:column;gap:2px;}
 .trm-badge{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;background:rgba(102,245,200,.08);border:1px solid rgba(102,245,200,.2);border-radius:20px;font-size:11px;color:var(--a2);margin-top:8px;}
 .trm-dot{width:6px;height:6px;border-radius:50%;background:var(--a2);}
 /* AI TOAST */
-.ai-toast{position:fixed;bottom:28px;right:28px;background:var(--s);border:1px solid rgba(102,245,200,.3);border-radius:14px;width:320px;z-index:600;transform:translateY(100px);opacity:0;transition:all .35s cubic-bezier(.16,1,.3,1);box-shadow:0 12px 40px rgba(0,0,0,.5);overflow:hidden;pointer-events:none;}
+.ai-toast{position:fixed;bottom:28px;right:28px;background:var(--s);border:1px solid rgba(102,245,200,.3);border-radius:14px;width:min(320px,calc(100vw - 32px));z-index:600;transform:translateY(100px);opacity:0;transition:all .35s cubic-bezier(.16,1,.3,1);box-shadow:0 12px 40px rgba(0,0,0,.5);overflow:hidden;pointer-events:none;}
 .ai-toast.show{transform:translateY(0);opacity:1;pointer-events:all;}
 .ai-toast-bar{padding:14px 16px;display:flex;align-items:flex-start;gap:10px;cursor:pointer;}
 .ai-toast-bar:hover{background:var(--s2);}
@@ -488,7 +525,7 @@ nav{display:flex;flex-direction:column;gap:2px;}
       <button class="btn btn-p" id="b-new-tx3">+ Transaction</button>
     </div>
     <!-- Balance cards -->
-    <div id="acc-detail-stats" style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px"></div>
+    <div id="acc-detail-stats" class="acc-stats-grid"></div>
     <!-- Category filters -->
     <div class="filters" id="acc-detail-filters"></div>
     <!-- Transaction list -->
@@ -571,35 +608,41 @@ nav{display:flex;flex-direction:column;gap:2px;}
   <div class="hdr"><div><div class="pt">Apple Pay <span>Shortcut</span></div><div class="ps">Log expenses automatically after every Apple Pay payment</div></div></div>
   <div style="display:flex;flex-direction:column;gap:18px;max-width:680px">
     <div class="card" style="padding:20px">
-      <div style="font-size:11px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;color:var(--t3);margin-bottom:10px">Your Plata Token</div>
-      <div style="font-size:12px;color:var(--t2);margin-bottom:12px;line-height:1.6">This token identifies you — keep it private. Paste it into the shortcut when prompted.</div>
+      <div style="font-size:11px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;color:var(--t3);margin-bottom:8px">Your Token</div>
+      <div style="font-size:12px;color:var(--t2);margin-bottom:12px;line-height:1.6">Unique to you — paste this in step 5 when setting up the shortcut.</div>
       <div style="display:flex;gap:8px;align-items:center">
-        <div id="shortcut-token" style="flex:1;font-family:'DM Mono',monospace;font-size:12px;background:var(--s2);border:1px solid var(--bd);border-radius:8px;padding:10px 14px;color:var(--a);letter-spacing:.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Loading…</div>
-        <button onclick="navigator.clipboard.writeText(document.getElementById('shortcut-token').textContent).then(()=>showMsg('Token copied!'))" style="padding:10px 14px;border-radius:8px;background:var(--s2);border:1px solid var(--bd);color:var(--t2);font-family:'Sora',sans-serif;font-size:12px;cursor:pointer;white-space:nowrap">Copy</button>
+        <div id="shortcut-token" style="flex:1;font-family:'DM Mono',monospace;font-size:12px;background:var(--s2);border:1px solid var(--bd);border-radius:8px;padding:10px 14px;color:var(--a);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Loading…</div>
+        <button onclick="navigator.clipboard.writeText(document.getElementById('shortcut-token').textContent).then(()=>showMsg('Copied!'))" style="padding:10px 14px;border-radius:8px;background:var(--s2);border:1px solid var(--bd);color:var(--t2);font-family:'Sora',sans-serif;font-size:12px;cursor:pointer;white-space:nowrap">Copy</button>
       </div>
     </div>
     <div class="card" style="padding:20px">
-      <div style="font-size:11px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;color:var(--t3);margin-bottom:10px">Webhook URL</div>
-      <div style="font-size:12px;color:var(--t2);margin-bottom:12px">This is the URL the shortcut will POST to.</div>
+      <div style="font-size:11px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;color:var(--t3);margin-bottom:8px">Authorization Header</div>
+      <div style="font-size:12px;color:var(--t2);margin-bottom:12px;line-height:1.6">Add this as the <strong>authorization</strong> header in both "Get Contents of URL" blocks (steps 2 and 10).</div>
       <div style="display:flex;gap:8px;align-items:center">
-        <div style="flex:1;font-family:'DM Mono',monospace;font-size:11px;background:var(--s2);border:1px solid var(--bd);border-radius:8px;padding:10px 14px;color:var(--a2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">https://yzeruqrlgetmihjdsijf.supabase.co/functions/v1/log-transaction</div>
-        <button onclick="navigator.clipboard.writeText('https://yzeruqrlgetmihjdsijf.supabase.co/functions/v1/log-transaction').then(()=>showMsg('URL copied!'))" style="padding:10px 14px;border-radius:8px;background:var(--s2);border:1px solid var(--bd);color:var(--t2);font-family:'Sora',sans-serif;font-size:12px;cursor:pointer;white-space:nowrap">Copy</button>
+        <div id="shortcut-auth" style="flex:1;font-family:'DM Mono',monospace;font-size:11px;background:var(--s2);border:1px solid var(--bd);border-radius:8px;padding:10px 14px;color:var(--a2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Loading…</div>
+        <button onclick="navigator.clipboard.writeText(document.getElementById('shortcut-auth').textContent).then(()=>showMsg('Copied!'))" style="padding:10px 14px;border-radius:8px;background:var(--s2);border:1px solid var(--bd);color:var(--t2);font-family:'Sora',sans-serif;font-size:12px;cursor:pointer;white-space:nowrap">Copy</button>
       </div>
     </div>
     <div class="card" style="padding:20px">
-      <div style="font-size:11px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;color:var(--t3);margin-bottom:16px">Account &amp; Envelope IDs</div>
-      <div style="font-size:12px;color:var(--t2);margin-bottom:12px">Use these exact IDs as the list items in the shortcut.</div>
+      <div style="font-size:11px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;color:var(--t3);margin-bottom:8px">Your Accounts &amp; Envelopes</div>
+      <div style="font-size:12px;color:var(--t2);margin-bottom:12px">The shortcut fetches these dynamically — this is for reference only.</div>
       <div id="shortcut-ids-list" style="display:flex;flex-direction:column;gap:8px">Loading…</div>
     </div>
     <div class="card" style="padding:20px">
-      <div style="font-size:11px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;color:var(--t3);margin-bottom:16px">Setup Steps</div>
+      <div style="font-size:11px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;color:var(--t3);margin-bottom:16px">Setup Steps (iOS 26)</div>
       <div style="display:flex;flex-direction:column;gap:16px">
-        <div style="display:flex;gap:14px;align-items:flex-start"><div style="width:24px;height:24px;border-radius:50%;background:rgba(184,245,102,.12);border:1px solid rgba(184,245,102,.25);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--a);flex-shrink:0">1</div><div><div style="font-size:13px;font-weight:500;margin-bottom:3px">Open Shortcuts → Automation → New Automation</div><div style="font-size:12px;color:var(--t2);line-height:1.6">Tap +, select <strong>Transaction</strong> as the trigger under Apple Pay. Set it to run for any payment.</div></div></div>
-        <div style="display:flex;gap:14px;align-items:flex-start"><div style="width:24px;height:24px;border-radius:50%;background:rgba(184,245,102,.12);border:1px solid rgba(184,245,102,.25);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--a);flex-shrink:0">2</div><div><div style="font-size:13px;font-weight:500;margin-bottom:3px">Add "Ask for Input" — Amount</div><div style="font-size:12px;color:var(--t2);line-height:1.6">Type: <strong>Number</strong>. Prompt: <em>"How much?"</em>. Save as variable <strong>Amount</strong>.</div></div></div>
-        <div style="display:flex;gap:14px;align-items:flex-start"><div style="width:24px;height:24px;border-radius:50%;background:rgba(184,245,102,.12);border:1px solid rgba(184,245,102,.25);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--a);flex-shrink:0">3</div><div><div style="font-size:13px;font-weight:500;margin-bottom:3px">Add "Choose from List" — Account</div><div style="font-size:12px;color:var(--t2);line-height:1.6">Add your account IDs from the table above as list items. Save result as <strong>Account</strong>.</div></div></div>
-        <div style="display:flex;gap:14px;align-items:flex-start"><div style="width:24px;height:24px;border-radius:50%;background:rgba(184,245,102,.12);border:1px solid rgba(184,245,102,.25);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--a);flex-shrink:0">4</div><div><div style="font-size:13px;font-weight:500;margin-bottom:3px">Add "Choose from List" — Envelope</div><div style="font-size:12px;color:var(--t2);line-height:1.6">Add your envelope IDs from the table above as list items. Save result as <strong>Envelope</strong>.</div></div></div>
-        <div style="display:flex;gap:14px;align-items:flex-start"><div style="width:24px;height:24px;border-radius:50%;background:rgba(184,245,102,.12);border:1px solid rgba(184,245,102,.25);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--a);flex-shrink:0">5</div><div><div style="font-size:13px;font-weight:500;margin-bottom:3px">Add "Get Contents of URL"</div><div style="font-size:12px;color:var(--t2);line-height:1.6">URL: webhook above. Method: <strong>POST</strong>. Body type: <strong>JSON</strong>.</div><div style="font-family:'DM Mono',monospace;font-size:11px;background:var(--bg);border:1px solid var(--bd);border-radius:8px;padding:10px 12px;margin-top:8px;color:var(--t2);line-height:1.9">token: <span style="color:var(--a)">"paste your token here"</span><br>amount: <span style="color:var(--a2)">Amount (variable)</span><br>account_id: <span style="color:var(--a2)">Account (variable)</span><br>envelope_id: <span style="color:var(--a2)">Envelope (variable)</span></div></div></div>
-        <div style="display:flex;gap:14px;align-items:flex-start"><div style="width:24px;height:24px;border-radius:50%;background:rgba(184,245,102,.12);border:1px solid rgba(184,245,102,.25);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--a);flex-shrink:0">6</div><div><div style="font-size:13px;font-weight:500;margin-bottom:3px">Turn off "Ask Before Running"</div><div style="font-size:12px;color:var(--t2);line-height:1.6">So the shortcut fires silently after every Apple Pay transaction.</div></div></div>
+        <div style="display:flex;gap:14px;align-items:flex-start"><div style="width:24px;height:24px;border-radius:50%;background:rgba(184,245,102,.12);border:1px solid rgba(184,245,102,.25);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--a);flex-shrink:0">1</div><div><div style="font-size:13px;font-weight:500;margin-bottom:3px">Create a new Automation</div><div style="font-size:12px;color:var(--t2);line-height:1.6">Open <strong>Shortcuts</strong> → <strong>Automation</strong> tab → tap <strong>+</strong> → scroll down to find <strong>Transaction</strong> under Wallet &amp; Apple Pay. Leave all cards and categories checked. Select <strong>Run Immediately</strong> → tap <strong>Next</strong>.</div></div></div>
+        <div style="display:flex;gap:14px;align-items:flex-start"><div style="width:24px;height:24px;border-radius:50%;background:rgba(184,245,102,.12);border:1px solid rgba(184,245,102,.25);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--a);flex-shrink:0">2</div><div><div style="font-size:13px;font-weight:500;margin-bottom:3px">Search "Get Contents of URL" → fetch accounts &amp; envelopes</div><div style="font-size:12px;color:var(--t2);line-height:1.6">URL: <code style="font-family:'DM Mono',monospace;font-size:10px;color:var(--a2)">https://yzeruqrlgetmihjdsijf.supabase.co/functions/v1/get-envelopes</code> · Expand (∨) → Method: <strong>POST</strong> → Headers → add key <strong>authorization</strong>, value = Authorization Header above → Request Body: <strong>JSON</strong> → add text field <strong>token</strong> = your token above.</div></div></div>
+        <div style="display:flex;gap:14px;align-items:flex-start"><div style="width:24px;height:24px;border-radius:50%;background:rgba(184,245,102,.12);border:1px solid rgba(184,245,102,.25);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--a);flex-shrink:0">3</div><div><div style="font-size:13px;font-weight:500;margin-bottom:3px">Search "Get Dictionary Value" → key: accounts</div><div style="font-size:12px;color:var(--t2);line-height:1.6">Key = <strong>accounts</strong> · "in" = <strong>Contents of URL</strong>.</div></div></div>
+        <div style="display:flex;gap:14px;align-items:flex-start"><div style="width:24px;height:24px;border-radius:50%;background:rgba(184,245,102,.12);border:1px solid rgba(184,245,102,.25);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--a);flex-shrink:0">4</div><div><div style="font-size:13px;font-weight:500;margin-bottom:3px">Search "Choose from List" → account picker</div><div style="font-size:12px;color:var(--t2);line-height:1.6">List = <strong>Dictionary Value</strong> · tap <strong>&gt;</strong> → prompt: <strong>"Which account?"</strong></div></div></div>
+        <div style="display:flex;gap:14px;align-items:flex-start"><div style="width:24px;height:24px;border-radius:50%;background:rgba(184,245,102,.12);border:1px solid rgba(184,245,102,.25);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--a);flex-shrink:0">5</div><div><div style="font-size:13px;font-weight:500;margin-bottom:3px">Search "Get Dictionary Value" → key: id (account)</div><div style="font-size:12px;color:var(--t2);line-height:1.6">Key = <strong>id</strong> · "in" = <strong>Selected Item</strong> (from account list).</div></div></div>
+        <div style="display:flex;gap:14px;align-items:flex-start"><div style="width:24px;height:24px;border-radius:50%;background:rgba(184,245,102,.12);border:1px solid rgba(184,245,102,.25);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--a);flex-shrink:0">6</div><div><div style="font-size:13px;font-weight:500;margin-bottom:3px">Search "Get Dictionary Value" → key: envelopes</div><div style="font-size:12px;color:var(--t2);line-height:1.6">Key = <strong>envelopes</strong> · "in" = <strong>Contents of URL</strong> (the first action).</div></div></div>
+        <div style="display:flex;gap:14px;align-items:flex-start"><div style="width:24px;height:24px;border-radius:50%;background:rgba(184,245,102,.12);border:1px solid rgba(184,245,102,.25);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--a);flex-shrink:0">7</div><div><div style="font-size:13px;font-weight:500;margin-bottom:3px">Search "Choose from List" → envelope picker</div><div style="font-size:12px;color:var(--t2);line-height:1.6">List = <strong>Dictionary Value</strong> (envelopes) · tap <strong>&gt;</strong> → prompt: <strong>"Which envelope?"</strong></div></div></div>
+        <div style="display:flex;gap:14px;align-items:flex-start"><div style="width:24px;height:24px;border-radius:50%;background:rgba(184,245,102,.12);border:1px solid rgba(184,245,102,.25);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--a);flex-shrink:0">8</div><div><div style="font-size:13px;font-weight:500;margin-bottom:3px">Search "Get Dictionary Value" → key: id (envelope)</div><div style="font-size:12px;color:var(--t2);line-height:1.6">Key = <strong>id</strong> · "in" = <strong>Selected Item</strong> (from envelope list).</div></div></div>
+        <div style="display:flex;gap:14px;align-items:flex-start"><div style="width:24px;height:24px;border-radius:50%;background:rgba(184,245,102,.12);border:1px solid rgba(184,245,102,.25);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--a);flex-shrink:0">9</div><div><div style="font-size:13px;font-weight:500;margin-bottom:3px">Search "Ask for Input" → amount</div><div style="font-size:12px;color:var(--t2);line-height:1.6">Type: <strong>Number</strong> · tap <strong>&gt;</strong> → prompt: <strong>"How much?"</strong> · dismiss the variable selector that appears (tap X).</div></div></div>
+        <div style="display:flex;gap:14px;align-items:flex-start"><div style="width:24px;height:24px;border-radius:50%;background:rgba(184,245,102,.12);border:1px solid rgba(184,245,102,.25);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--a);flex-shrink:0">10</div><div><div style="font-size:13px;font-weight:500;margin-bottom:3px">Search "Get Contents of URL" → log the transaction</div><div style="font-size:12px;color:var(--t2);line-height:1.6">URL: <code style="font-family:'DM Mono',monospace;font-size:10px;color:var(--a2)">https://yzeruqrlgetmihjdsijf.supabase.co/functions/v1/log-transaction</code> · Method: <strong>POST</strong> · Headers → add <strong>authorization</strong> = Authorization Header above · Body: <strong>JSON</strong> with 4 fields:</div>
+        <div style="font-family:'DM Mono',monospace;font-size:11px;background:var(--bg);border:1px solid var(--bd);border-radius:8px;padding:10px 12px;margin-top:8px;color:var(--t2);line-height:2">token → <span style="color:var(--a)">your token (text)</span><br>amount → <span style="color:var(--a2)">Ask for Input (variable)</span><br>account_id → <span style="color:var(--a2)">Dictionary Value id for account</span><br>envelope_id → <span style="color:var(--a2)">Dictionary Value id for envelope</span></div></div></div>
+        <div style="display:flex;gap:14px;align-items:flex-start"><div style="width:24px;height:24px;border-radius:50%;background:rgba(184,245,102,.12);border:1px solid rgba(184,245,102,.25);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--a);flex-shrink:0">11</div><div><div style="font-size:13px;font-weight:500;margin-bottom:3px">Save ✓</div><div style="font-size:12px;color:var(--t2);line-height:1.6">Tap the <strong>blue checkmark</strong> to save. Done — the automation fires after every Apple Pay payment, asks which account + envelope + how much, then logs it to Plata instantly.</div></div></div>
       </div>
     </div>
   </div>
@@ -610,7 +653,7 @@ nav{display:flex;flex-direction:column;gap:2px;}
   <div style="display:flex;flex-direction:column;gap:20px;max-width:580px">
     <div><div style="font-size:11px;font-weight:500;letter-spacing:1.5px;color:var(--t3);text-transform:uppercase;margin-bottom:10px">Profile</div>
       <div class="ss-sec">
-        <div class="ss-row"><div><div style="font-size:13px;font-weight:500">Name</div></div><input id="settings-name" style="background:var(--s2);border:1px solid var(--bd);border-radius:8px;padding:7px 12px;color:var(--t);font-family:'Sora',sans-serif;font-size:12px;outline:none;width:160px"/></div>
+        <div class="ss-row"><div><div style="font-size:13px;font-weight:500">Name</div></div><input id="settings-name" style="background:var(--s2);border:1px solid var(--bd);border-radius:8px;padding:7px 12px;color:var(--t);font-family:'Sora',sans-serif;font-size:12px;outline:none;width:min(160px,40vw)"/></div>
         <div class="ss-row"><div><div style="font-size:13px;font-weight:500">Account</div><div style="font-size:11px;color:var(--t2);margin-top:3px" id="settings-email">—</div></div><button class="btn btn-red" style="font-size:12px;padding:7px 14px" id="b-signout2">Sign out</button></div>
       </div>
     </div>
@@ -657,6 +700,7 @@ nav{display:flex;flex-direction:column;gap:2px;}
     </div>
   </div>
   <div id="tx-usd-preview" style="display:none;margin:-8px 0 12px;padding:8px 12px;background:rgba(102,245,200,.06);border:1px solid rgba(102,245,200,.15);border-radius:8px;font-size:12px;color:var(--a2)"></div>
+  <div id="tx-currency-warn" style="display:none;margin:-8px 0 12px;padding:8px 12px;background:rgba(245,196,102,.06);border:1px solid rgba(245,196,102,.3);border-radius:8px;font-size:12px;color:var(--a3)">⚠️ Currency mismatch — amount will be converted at TRM</div>
   <div class="field"><label>Description</label><input type="text" id="tx-desc" placeholder="e.g. Lunch at Crepes &amp; Waffles"/></div>
   <div class="field"><label>Account</label><select id="tx-account"></select></div>
   <div id="tx-cat-section">
@@ -683,17 +727,17 @@ nav{display:flex;flex-direction:column;gap:2px;}
 <div class="mo" id="mo-goal"><div class="mdl">
   <div class="mtit" id="gm-title">New goal</div><div class="msub" id="gm-sub">Fill in what you know — everything is optional</div>
   <input type="hidden" id="gm-id" value=""/>
-  <div style="display:grid;grid-template-columns:1fr 80px;gap:10px">
+  <div class="modal-grid-name-icon">
     <div class="field"><label>Goal name</label><input type="text" id="gm-name" placeholder="e.g. Fridge, Wedding, Trip"/></div>
     <div class="field"><label>Icon</label><input type="text" id="gm-icon" placeholder="💍" maxlength="2"/></div>
   </div>
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+  <div class="modal-grid-2col">
     <div class="field">
       <label>How much do you need? <span style="color:var(--t3);font-weight:400">— optional</span></label>
       <input type="number" id="gm-target" placeholder="Leave blank if unsure"/>
     </div>
     <div class="field"><label>Already saved (COP $)</label><input type="number" id="gm-saved" placeholder="0"/></div>
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:4px">
+  <div class="modal-grid-2col" style="margin-top:4px">
     <div class="field"><label>Goal currency</label>
       <select id="gm-currency" style="width:100%;background:var(--s2);border:1px solid var(--bd);border-radius:8px;padding:8px 10px;color:var(--t);font-size:12px;outline:none">
         <option value="COP">COP</option>
@@ -3601,7 +3645,7 @@ async function generateTxInsight(tx, cat){
   const isIncome=tx.type==='income';
   const acc=accById(tx.account_id);
   const prompt=isIncome
-    ?`The user just logged income: "${tx.name}" for ${fmt(Math.abs(tx.amount))} COP to ${acc?.name||'their account'}. Total balance now ${fmt(totalBalanceCOP())} COP. Write ONE punchy sentence (max 15 words) reacting positively. Don't start with "I".`
+    ?`The user just logged income: "${tx.name}" for ${fmt(Math.abs(tx.amount))} COP to ${acc?.name||'their account'}. Total balance now ${fmt(totalBalanceCOP())} COP.${activePlan?' They have an active '+activePlan.name+' plan — remind them to run the payday split if they haven\'t yet.':''} Write ONE punchy sentence (max 18 words) reacting positively. Don't start with "I". No ₱ symbol.`
     :`The user just logged: "${tx.name}" for ${fmt(Math.abs(tx.amount))} COP in ${cat?.name||'Other'} (now ${pct}% of budget). Overall ${Math.round(spent/BUDGET*100)}% of monthly budget used.${upcoming?` Next goal payment: ${fmt(upcoming.amount)} in ${upcoming.days} days.`:''} Write ONE punchy sentence (max 15 words). Don't start with "I".`;
   try{
     const d=await callAI([{role:'user',content:prompt}],'',80);
@@ -3622,11 +3666,12 @@ async function loadPulse(){
   const over=cats.filter(c=>c.spent/c.budget_limit>0.8);
   const upcoming=allMilestonesSorted().slice(0,2);
   const totalCOP=totalBalanceCOP();
-  const prompt=`Give a single-sentence weekly financial pulse. Smart friend tone — specific, honest, max 20 words.
-Total balance: ${fmt(totalCOP)} COP across ${accounts.length} account(s).
-Over 80%: ${over.map(c=>c.name).join(', ')||'none'}.
-Next payment: ${upcoming.length?`${fmt(upcoming[0].amount)} for "${upcoming[0].name}" in ${upcoming[0].days} days`:'none soon'}.
-One sentence only. Don't start with "You".`;
+  const prompt=`Give a single-sentence weekly financial pulse for a Colombian user. Smart friend tone — specific, encouraging, max 20 words.
+Total balance: ${fmt(totalCOP)} COP (≈ ${fmtUSD(totalCOP/currentTRM)} USD) across ${accounts.length} account(s).
+Active savings plan: ${activePlan?activePlan.name+' — all upcoming payments are already budgeted for':'none'}.
+Over 80% of budget: ${over.map(c=>c.name).join(', ')||'none'}.
+Next milestone: ${upcoming.length?`"${upcoming[0].name}" in ${upcoming[0].days} days (already planned for)`:'none soon'}.
+Rules: One sentence only. Don't start with "You". Format amounts as COP e.g. "$2.654.662 COP" or just the number with COP — never use ₱ or $ alone. Don't suggest the user is short on money if they have an active plan covering upcoming payments.`;
   try{
     const d=await callAI([{role:'user',content:prompt}],'',60);
     let msg=(d.content?.[0]?.text||'').trim().replace(/^["']|["']$/g,'');
@@ -3655,11 +3700,16 @@ function goto(page){
   else if(page==='planner')      {renderIncomes();renderPlanGoalSummary();}
   
   else if(page==='yearplan'){
-    // Pre-scroll before render so there's no flash of bottom-content
     window.scrollTo(0,0);
     document.documentElement.scrollTop=0;
     document.body.scrollTop=0;
     renderYearPlan();
+    // Scroll again after render completes
+    requestAnimationFrame(()=>{
+      window.scrollTo(0,0);
+      document.documentElement.scrollTop=0;
+      document.body.scrollTop=0;
+    });
   }
  else if(page==='settings')     renderSettingsEnvelopes();
   else if(page==='shortcuts')    renderShortcuts();
@@ -3772,7 +3822,7 @@ function renderTxPage(){
   ).join('') +
   // Account chips as navigation
   accounts.map(a=>
-    `<button class="acc-nav-chip" data-aid="${a.id}" style="padding:6px 14px;border-radius:20px;font-size:12px;cursor:pointer;border:1px solid ${a.color}44;color:${a.color};background:${a.color}11;font-family:'Sora',sans-serif;transition:all .15s;">${a.icon} ${a.name} <span style="font-family:'DM Mono',monospace;font-size:10px;opacity:.7">${a.currency==='COP'?fmt(a.balance):fmtUSD(a.balance)+'USD'}</span></button>`
+    `<button class="acc-nav-chip" data-aid="${a.id}" style="padding:6px 14px;border-radius:20px;font-size:12px;cursor:pointer;border:1px solid ${a.color}44;color:${a.color};background:${a.color}11;font-family:'Sora',sans-serif;transition:all .15s;">${a.icon} ${a.name}</button>`
   ).join('');
 
   let list = txs;
@@ -3798,21 +3848,20 @@ function renderAccountDetail(accId){
   const detail = document.getElementById('tx-account-detail');
   detail.style.display='flex';
 
-  // Header
-  document.getElementById('acc-detail-title').innerHTML = `${acc.icon} <span style="color:var(--a);font-style:italic">${acc.name}</span>`;
-  document.getElementById('acc-detail-sub').textContent = `${acc.currency} account · ${acc.currency==='COP'?fmt(acc.balance):fmtUSD(acc.balance)+' USD balance'}`;
-
-  // Get this account's transactions
+  // Get this account's transactions FIRST
   const accTxs = txs.filter(t=>t.account_id===accId);
   const totalIn = accTxs.filter(t=>t.amount>0).reduce((s,t)=>s+t.amount,0);
   const totalOut = accTxs.filter(t=>t.amount<0).reduce((s,t)=>s+Math.abs(t.amount),0);
   const balCOP = toCOP(acc.balance, acc.currency);
 
+  // Header
+  document.getElementById('acc-detail-title').innerHTML = `${acc.icon} <span style="color:var(--a);font-style:italic">${acc.name}</span>`;
+  document.getElementById('acc-detail-sub').textContent = `${acc.currency} account · ${accTxs.length} transaction${accTxs.length!==1?'s':''} this month`;
+
   // Stats
   document.getElementById('acc-detail-stats').innerHTML =
-    `<div class="sc cg"><div class="sl">Balance</div><div class="sv" style="color:${acc.color}">${acc.currency==='COP'?fmt(acc.balance):fmtUSD(acc.balance)+' USD'}</div><div class="ss">${acc.currency!=='COP'?'≈ '+fmt(balCOP)+' COP':acc.currency+' account'}</div></div>`+
-    `<div class="sc ct"><div class="sl">This month in</div><div class="sv">+${fmt(totalIn)}</div><div class="ss"><span class="up">↑</span> income & deposits</div></div>`+
-    `<div class="sc cr"><div class="sl">This month out</div><div class="sv">-${fmt(totalOut)}</div><div class="ss"><span class="dn">↓</span> expenses</div></div>`;
+    `<div class="sc ct"><div class="sl">This month in</div><div class="sv">+${acc.currency==='USD'?fmtUSD(totalIn):fmt(totalIn)}</div><div class="ss"><span class="up">↑</span> income & deposits</div></div>`+
+    `<div class="sc cr"><div class="sl">This month out</div><div class="sv">-${acc.currency==='USD'?fmtUSD(totalOut):fmt(totalOut)}</div><div class="ss"><span class="dn">↓</span> expenses</div></div>`;
 
   // Category filters
   const usedCatIds = [...new Set(accTxs.filter(t=>t.category_id).map(t=>t.category_id))];
@@ -4155,8 +4204,10 @@ function drainPaydayQueue(){
       <button id="payday-notif-later" style="flex:1;padding:9px;border-radius:8px;background:transparent;border:1px solid var(--bd);color:var(--t2);font-family:'Sora',sans-serif;font-size:12px;cursor:pointer;">Later</button>
     </div>`;
 
+  const isMob = window.innerWidth <= 900;
   el.style.cssText = `
-    position:fixed;bottom:28px;right:28px;width:300px;
+    position:fixed;bottom:${isMob?'80px':'28px'};right:${isMob?'16px':'28px'};
+    left:${isMob?'16px':'auto'};width:${isMob?'auto':'300px'};
     background:var(--s);border:1px solid rgba(184,245,102,.3);
     border-radius:14px;padding:16px;z-index:600;
     box-shadow:0 12px 40px rgba(0,0,0,.5);
@@ -4231,10 +4282,11 @@ async function showAISplitModal(s, amtCOP, isBonus=false){
 
   const mo = document.createElement('div');
   mo.id = 'split-modal';
-  mo.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.75);backdrop-filter:blur(4px);z-index:800;display:flex;align-items:center;justify-content:center;';
+  const isMobile = window.innerWidth <= 900;
+  mo.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.75);backdrop-filter:blur(4px);z-index:800;display:flex;align-items:'+(isMobile?'flex-end':'center')+';justify-content:center;';
   mo.addEventListener('click', e=>{ if(e.target===mo) mo.remove(); });
   mo.innerHTML = `
-    <div style="background:var(--s);border:1px solid var(--bd);border-radius:18px;padding:26px;width:480px;max-width:94vw;max-height:90vh;overflow-y:auto;">
+    <div style="background:var(--s);border:1px solid var(--bd);border-radius:${isMobile?'18px 18px 0 0':'18px'};padding:26px;width:${isMobile?'100%':'480px'};max-width:${isMobile?'100vw':'94vw'};max-height:${isMobile?'92vh':'90vh'};overflow-y:auto;">
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">
         <div style="width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,rgba(102,245,200,.2),rgba(196,102,245,.2));border:1px solid rgba(102,245,200,.25);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">✦</div>
         <div>
@@ -4692,6 +4744,12 @@ function openTxModal(){
   document.getElementById('tx-date').value=new Date().toISOString().slice(0,10);
   document.getElementById('tx-currency').value='COP';
   document.getElementById('tx-usd-preview').style.display='none';
+  document.getElementById('tx-usd-preview').textContent='';
+  const txWarn=document.getElementById('tx-currency-warn');
+  if(txWarn) txWarn.style.display='none';
+  // Reset account to primary COP account by default
+  const primaryAcc = accounts.find(a=>a.is_primary) || accounts[0];
+  if(primaryAcc) document.getElementById('tx-account').value = primaryAcc.id;
   openMo('mo-tx');
 }
 
@@ -4731,11 +4789,19 @@ async function saveTx(){
   if(error){showMsg('Error: '+error.message,'var(--a4)');console.error(error);return;}
   txs.unshift(data);
 
-  // Update account balance
+  // Update account balance — handle currency mismatch correctly
   if(acc){
-    acc.balance = acc.currency==='COP'
-      ? (acc.balance||0) + signed
-      : (acc.balance||0) + (isIncome ? amt : -amt);
+    if(acc.currency === currency){
+      // Same currency — add/subtract directly
+      acc.balance = (acc.balance||0) + (isIncome ? amt : -amt);
+    } else if(acc.currency === 'COP' && currency === 'USD'){
+      // USD transaction into COP account — convert
+      acc.balance = (acc.balance||0) + (isIncome ? amtCOP : -amtCOP);
+    } else if(acc.currency === 'USD' && currency === 'COP'){
+      // COP transaction into USD account — convert to USD
+      const amtUSD = amt / currentTRM;
+      acc.balance = (acc.balance||0) + (isIncome ? amtUSD : -amtUSD);
+    }
     await sb.from('accounts').update({balance:acc.balance}).eq('id',acc.id);
   }
 
@@ -4748,6 +4814,8 @@ async function saveTx(){
   closeMo('mo-tx');
   renderCurrent();
   showMsg(isIncome ? 'Income logged ✓' : 'Expense logged ✓');
+  // Trigger AI insight
+  generateTxInsight(data, isIncome ? null : catById(txSelCat));
 }
 
 function openGoalModal(id){
@@ -4867,13 +4935,9 @@ async function openAccountDrawer(accId){
 
   // Set header
   document.getElementById('drawer-acc-name').textContent = `${acc.icon} ${acc.name}`;
-
-  // Set balance
-  const balMain = acc.currency==='COP' ? fmt(acc.balance) : fmtUSD(acc.balance)+' USD';
-  const balSub = acc.currency!=='COP' ? `≈ ${fmt(toCOP(acc.balance, acc.currency))} COP at TRM ${Math.round(currentTRM).toLocaleString()}` : `${acc.currency} account`;
-  document.getElementById('drawer-bal-main').textContent = balMain;
+  document.getElementById('drawer-bal-main').textContent = `${acc.currency} account`;
   document.getElementById('drawer-bal-main').style.color = acc.color;
-  document.getElementById('drawer-bal-sub').textContent = balSub;
+  document.getElementById('drawer-bal-sub').textContent = '';
 
   // Load transactions
   await loadDrawerTxs(accId, false);
@@ -5198,14 +5262,13 @@ async function saveEnvelopeModal(){
 }
 
 async function renderShortcuts(){
-  // Load token from profile
   const tokenEl = document.getElementById('shortcut-token');
-  if(tokenEl){
+  const authEl = document.getElementById('shortcut-auth');
+  if(tokenEl || authEl){
     const {data} = await sb.from('profiles').select('shortcut_token').eq('id', currentUser.id).single();
-    tokenEl.textContent = data?.shortcut_token || 'Not found — run SQL migration';
+    if(tokenEl) tokenEl.textContent = data?.shortcut_token || 'Not found';
+    if(authEl) authEl.textContent = 'Bearer ' + SUPABASE_ANON;
   }
-
-  // Show account + envelope IDs
   const idsEl = document.getElementById('shortcut-ids-list');
   if(idsEl){
     let html = '';
@@ -5214,7 +5277,7 @@ async function renderShortcuts(){
       html += `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:var(--s2);border:1px solid var(--bd);border-radius:8px;gap:12px">
         <div style="font-size:13px">${a.icon} ${a.name} <span style="font-size:10px;color:var(--t3)">${a.currency}</span></div>
         <div style="display:flex;align-items:center;gap:8px">
-          <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--t2)">${a.id}</div>
+          <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--t2);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${a.id}</div>
           <button onclick="navigator.clipboard.writeText('${a.id}').then(()=>showMsg('Copied!'))" style="padding:4px 10px;border-radius:6px;background:transparent;border:1px solid var(--bd);color:var(--t3);font-family:'Sora',sans-serif;font-size:10px;cursor:pointer">Copy</button>
         </div>
       </div>`;
@@ -5224,7 +5287,7 @@ async function renderShortcuts(){
       html += `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:var(--s2);border:1px solid var(--bd);border-radius:8px;gap:12px">
         <div style="font-size:13px">${e.icon} ${e.name}</div>
         <div style="display:flex;align-items:center;gap:8px">
-          <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--t2)">${e.id}</div>
+          <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--t2);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${e.id}</div>
           <button onclick="navigator.clipboard.writeText('${e.id}').then(()=>showMsg('Copied!'))" style="padding:4px 10px;border-radius:6px;background:transparent;border:1px solid var(--bd);color:var(--t3);font-family:'Sora',sans-serif;font-size:10px;cursor:pointer">Copy</button>
         </div>
       </div>`;
@@ -5407,23 +5470,32 @@ document.addEventListener('input',function(e){
   if(t.classList.contains('inc-lbl')){const s=incomeSrc.find(x=>x.id===+t.dataset.sid);if(s)s.label=t.value;}
   if(t.classList.contains('inc-amt')){const s=incomeSrc.find(x=>x.id===+t.dataset.sid);if(s){s.amount=+t.value;renderIncomes();}}
   if(t.id==='settings-name'){if(currentUser)sb.from('profiles').update({name:t.value}).eq('id',currentUser.id);document.getElementById('user-name').textContent=t.value;document.getElementById('user-av').textContent=t.value.slice(0,2).toUpperCase();}
-  // Live USD preview
-  if(t.id==='tx-amt'||t.id==='tx-currency'){
+  // Live USD preview + currency mismatch warning
+  if(t.id==='tx-amt'||t.id==='tx-currency'||t.id==='tx-account'){
     const amt=parseFloat(document.getElementById('tx-amt').value)||0;
     const cur=document.getElementById('tx-currency').value;
+    const accId=document.getElementById('tx-account')?.value;
+    const acc=accId?accById(accId):null;
     const preview=document.getElementById('tx-usd-preview');
-    if(cur==='USD'&&amt>0){preview.style.display='block';preview.textContent=`≈ ${fmt(amt*currentTRM)} COP at TRM ${Math.round(currentTRM).toLocaleString()}`;}
-    else{preview.style.display='none';}
+    const warn=document.getElementById('tx-currency-warn');
+    // USD preview
+    if(cur==='USD'&&amt>0){preview.style.display='block';preview.textContent=`≈ ${fmt(Math.round(amt*currentTRM))} COP at TRM ${Math.round(currentTRM).toLocaleString()}`;}
+    else{preview.style.display='none';preview.textContent='';}
+    // Mismatch warning
+    if(warn&&acc&&((acc.currency==='USD'&&cur==='COP')||(acc.currency==='COP'&&cur==='USD'))){
+      warn.style.display='block';
+      warn.textContent=acc.currency==='USD'&&cur==='COP'
+        ?`⚠️ You're logging COP into a USD account — will convert ${amt>0?fmt(amt)+' COP → '+fmtUSD(amt/currentTRM)+' USD':''} at TRM`
+        :`⚠️ You're logging USD into a COP account — will convert ${amt>0?fmtUSD(amt)+' → '+fmt(Math.round(amt*currentTRM))+' COP':''} at TRM`;
+    } else if(warn){warn.style.display='none';}
   }
 });
 document.addEventListener('change',function(e){
   const t=e.target;
   if(t.classList.contains('inc-frq')){const s=incomeSrc.find(x=>x.id===+t.dataset.sid);if(s){s.freq=t.value;renderIncomes();}}
   if(t.id==='tx-currency'){
-    const amt=parseFloat(document.getElementById('tx-amt').value)||0;
-    const preview=document.getElementById('tx-usd-preview');
-    if(t.value==='USD'&&amt>0){preview.style.display='block';preview.textContent=`≈ ${fmt(amt*currentTRM)} COP at TRM ${Math.round(currentTRM).toLocaleString()}`;}
-    else{preview.style.display='none';}
+    // Trigger the input handler to update preview and mismatch warning
+    t.dispatchEvent(new Event('input', {bubbles:true}));
   }
 });
 
@@ -6015,12 +6087,13 @@ function renderYearPlan() {
     };
     window.ypSwitchPlan = function() {
       const overlay = document.createElement('div');
-      overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.75);backdrop-filter:blur(4px);z-index:5000;display:flex;align-items:center;justify-content:center;';
+      const isMob2 = window.innerWidth <= 900;
+      overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.75);backdrop-filter:blur(4px);z-index:5000;display:flex;align-items:'+(isMob2?'flex-end':'center')+';justify-content:center;';
       overlay.addEventListener('click', function(ev){ if(ev.target===overlay) overlay.remove(); });
       document.body.appendChild(overlay);
 
       const box = document.createElement('div');
-      box.style.cssText = 'background:var(--s);border:1px solid var(--bd);border-radius:18px;padding:28px;width:460px;max-width:94vw;display:flex;flex-direction:column;gap:16px;max-height:90vh;overflow-y:auto;';
+      box.style.cssText = 'background:var(--s);border:1px solid var(--bd);border-radius:'+(isMob2?'18px 18px 0 0':'18px')+';padding:28px;width:'+(isMob2?'100%':'460px')+';max-width:'+(isMob2?'100vw':'94vw')+';display:flex;flex-direction:column;gap:16px;max-height:90vh;overflow-y:auto;';
       overlay.appendChild(box);
 
       const plans = window._briefingPlans || [];
