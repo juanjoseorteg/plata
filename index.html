@@ -2629,6 +2629,7 @@ function hidePlanStaleBanner(){
   document.getElementById('plan-stale-banner')?.remove();
 }
 window.showActivePlanDetail = function(){
+  try{
   if(!activePlan){showMsg('No active plan — run the AI Planner first','var(--a4)');return;}
   // Pre-compute proportional monthly amounts for display
   const _apAllocsBase=(activePlan.allocations||[]).filter(a=>a.type!=='savings'&&a.name!=='General Savings'&&a.monthly>0);
@@ -3129,6 +3130,7 @@ window.showActivePlanDetail = function(){
   detail.querySelector('#aplan-view-monthly').onclick=()=>aplanSetView('monthly');
   detail.querySelector('#aplan-view-payday').onclick=()=>aplanSetView('payday');
   detail.querySelector('#aplan-view-timeline').onclick=()=>aplanSetView('timeline');
+  }catch(e){console.error('showActivePlanDetail error:',e);showMsg('Error: '+e.message,'var(--a4)');}
 };
 async function renderObReview(){
   const container = document.getElementById('ob-steps');
@@ -4350,8 +4352,8 @@ ${isBonus
 Respond ONLY in JSON: {"splits":[{"envelopeName":"name","envelopeIcon":"icon","amount":123456,"reasoning":"one short sentence"}],"unallocated":123456,"summary":"2 sentences max"}`;
 
     // Use active plan allocations directly when available (non-bonus)
-    let splits;
-    let summaryHtml;
+    let splits = [];
+    let summaryHtml = '';
     if(activePlan && !isBonus){
       // Run full paycheck sequence with carry-forward — same as per-paycheck view
       const _spayToday = new Date(); _spayToday.setHours(0,0,0,0);
@@ -4420,9 +4422,16 @@ Respond ONLY in JSON: {"splits":[{"envelopeName":"name","envelopeIcon":"icon","a
 
       // Process each paycheck in order until we find the one matching this payday
       const _thisKey = new Date().toDateString()+'__'+s.label;
-      // Find today's paycheck date (first matching paycheck for this source on/after today)  
-      const _thisPc = _spayAllPcs.find(p=>p.source.label===s.label&&new Date(p.date.getFullYear(),p.date.getMonth(),p.date.getDate())>=_spayToday);
-      const _thisDateStr = _thisPc ? _thisPc.date.toDateString()+'__'+s.label : _thisKey;
+      // Find today's paycheck — match by date first, then by source label
+      const _thisPc = _spayAllPcs.find(p=>{
+        const sameDate = new Date(p.date.getFullYear(),p.date.getMonth(),p.date.getDate()).toDateString() === _spayToday.toDateString();
+        const sameSource = p.source.label===s.label || p.source.id===s.id;
+        return sameDate && sameSource;
+      }) || _spayAllPcs.find(p=>{
+        // Fallback: just match by date (any source today)
+        return new Date(p.date.getFullYear(),p.date.getMonth(),p.date.getDate()).toDateString() === _spayToday.toDateString();
+      });
+      const _thisDateStr = _thisPc ? _thisPc.date.toDateString()+'__'+_thisPc.source.label : _thisKey;
 
       for(const pc of _spayAllPcs){
         const pcCOP = pc.source.currency==='USD'?pc.source.amount*currentTRM:pc.source.amount;
@@ -4471,19 +4480,25 @@ Respond ONLY in JSON: {"splits":[{"envelopeName":"name","envelopeIcon":"icon","a
         }
       }
 
-      summaryHtml = `<div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;padding:10px 14px;background:rgba(102,245,200,.06);border:1px solid rgba(102,245,200,.2);border-radius:8px">
-        <span style="font-size:14px">✦</span>
-        <div style="font-size:12px;color:var(--t2);line-height:1.6">Following your <strong style="color:var(--a2)">${activePlan.name}</strong> plan · ${splits.length} active goals this paycheck</div>
-      </div>`;
+      // If key never matched, fall through to AI
+      if(!splits.length){
+        const d = await callAI([{role:'user',content:prompt}],'',1000);
+        let raw = (d.content?.[0]?.text||'{}').replace(/```json\n?/g,'').replace(/```\n?/g,'').trim();
+        const res = JSON.parse(raw);
+        splits = (res.splits||[]).map(split=>({...split, envelopeId: envelopes.find(e=>e.name===split.envelopeName)?.id||null}));
+        summaryHtml = `<div style="font-size:12px;color:var(--t2);margin-bottom:14px;padding:10px 14px;background:rgba(102,245,200,.06);border:1px solid rgba(102,245,200,.2);border-radius:8px;line-height:1.6">${res.summary||'AI suggested split'}</div>`;
+      } else {
+        summaryHtml = `<div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;padding:10px 14px;background:rgba(102,245,200,.06);border:1px solid rgba(102,245,200,.2);border-radius:8px">
+          <span style="font-size:14px">✦</span>
+          <div style="font-size:12px;color:var(--t2);line-height:1.6">Following your <strong style="color:var(--a2)">${activePlan.name}</strong> plan · ${splits.length} active goals this paycheck</div>
+        </div>`;
+      }
     } else {
       const d = await callAI([{role:'user',content:prompt}],'',1000);
-      let raw = (d.content?.[0]?.text||'{}').replace(/\`\`\`json\n?/g,'').replace(/\`\`\`\n?/g,'').trim();
+      let raw = (d.content?.[0]?.text||'{}').replace(/```json\n?/g,'').replace(/```\n?/g,'').trim();
       const res = JSON.parse(raw);
-      splits = res.splits.map(split=>{
-        const env = envelopes.find(e=>e.name===split.envelopeName);
-        return {...split, envelopeId: env?.id||null};
-      });
-      summaryHtml = `<div style="font-size:12px;color:var(--t2);margin-bottom:14px;padding:10px 14px;background:rgba(102,245,200,.06);border:1px solid rgba(102,245,200,.2);border-radius:8px;line-height:1.6">${res.summary}</div>`;
+      splits = (res.splits||[]).map(split=>({...split, envelopeId: envelopes.find(e=>e.name===split.envelopeName)?.id||null}));
+      summaryHtml = `<div style="font-size:12px;color:var(--t2);margin-bottom:14px;padding:10px 14px;background:rgba(102,245,200,.06);border:1px solid rgba(102,245,200,.2);border-radius:8px;line-height:1.6">${res.summary||''}</div>`;
     }
 
     const total = splits.reduce((s,x)=>s+x.amount,0);
