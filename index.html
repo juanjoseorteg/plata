@@ -409,7 +409,6 @@ nav{display:flex;flex-direction:column;gap:2px;}
     <div class="ni" data-p="goals"><span class="ic">◎</span> Goals</div>
     <div class="nl">Planning</div>
     <div class="ni" data-p="planner"><span class="ic">✦</span> AI Planner</div>
-    <div class="ni" data-p="reports"><span class="ic">↗</span> Reports</div>
     <div class="ni" data-p="yearplan"><span class="ic">◈</span> Year Plan</div>
     <div class="nl">Setup</div>
     <div class="ni" data-p="shortcuts"><span class="ic">⌘</span> Shortcuts</div>
@@ -437,6 +436,7 @@ nav{display:flex;flex-direction:column;gap:2px;}
 <div id="payday-banners"></div>
   <!-- ACTIVE PLAN CARD -->
 <div id="active-plan-card" style="display:none;align-items:center;justify-content:space-between;gap:14px;background:linear-gradient(135deg,rgba(102,245,200,.06),rgba(196,102,245,.04));border:1px solid rgba(102,245,200,.2);border-radius:14px;padding:14px 18px"></div>
+<div id="plan-recalc-indicator" style="opacity:0;transition:opacity .4s;font-size:11px;color:var(--a);text-align:right;margin-top:-8px;padding-right:4px">↻ Plan recalculated</div>
   <div class="pulse-card" id="pulse-card">
     <div class="pulse-header">
       <div class="pulse-dot"></div>
@@ -501,7 +501,7 @@ nav{display:flex;flex-direction:column;gap:2px;}
   <div class="hdr">
     <div>
       <div class="pt">Your <span>Accounts</span></div>
-      <div class="ps" id="accounts-total-line">Total balance across all accounts</div>
+      <div class="ps" id="accounts-total-line">Where your money lives</div>
     </div>
     <button class="btn btn-p" id="b-new-account">+ Add Account</button>
   </div>
@@ -565,15 +565,6 @@ nav{display:flex;flex-direction:column;gap:2px;}
 </div>
 
 <!-- REPORTS -->
-<div id="pg-reports" class="page">
-  <div class="hdr"><div><div class="pt">Monthly <span>Reports</span></div><div class="ps">Insights on your spending patterns</div></div></div>
-  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:4px" id="month-tabs"></div>
-  <div class="rg">
-    <div class="card"><div class="ch"><div class="ct_">Spending vs Budget</div></div><div style="padding:16px 18px" id="rep-compare"></div></div>
-    <div class="card"><div class="ch"><div class="ct_">Monthly summary</div></div><div style="padding:16px 18px" id="rep-summary"></div></div>
-  </div>
-  <div class="card"><div class="ch"><div class="ct_">Top spending categories</div></div><div style="padding:16px 18px" id="rep-top"></div></div>
-</div>
 
 <!-- SHORTCUTS -->
 <div id="pg-shortcuts" class="page">
@@ -676,6 +667,19 @@ nav{display:flex;flex-direction:column;gap:2px;}
       <input type="number" id="gm-target" placeholder="Leave blank if unsure"/>
     </div>
     <div class="field"><label>Already saved (COP $)</label><input type="number" id="gm-saved" placeholder="0"/></div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:4px">
+    <div class="field"><label>Goal currency</label>
+      <select id="gm-currency" style="width:100%;background:var(--s2);border:1px solid var(--bd);border-radius:8px;padding:8px 10px;color:var(--t);font-size:12px;outline:none">
+        <option value="COP">COP</option>
+        <option value="USD">USD</option>
+      </select>
+    </div>
+    <div class="field"><label>Save to account</label>
+      <select id="gm-account" style="width:100%;background:var(--s2);border:1px solid var(--bd);border-radius:8px;padding:8px 10px;color:var(--t);font-size:12px;outline:none">
+        <option value="">Any account</option>
+      </select>
+    </div>
+  </div>
   </div>
   <div class="field">
     <label>When do you need it? <span style="color:var(--t3);font-weight:400">— optional</span></label>
@@ -917,6 +921,7 @@ let incomeSrc = [];
 let incId = 2, txSelCat = 'food', etxSelCat = 'food', txFilter = 'all', repMonth = 'Apr 2026', txSelEnv = null;let pendingMilestones = [], chatHist = [], toastChatHist = [], toastExpanded = false, pulseShown = false;
 let toastAutoClose = null, pulseCtx = null, authMode = 'login';
 let txType = 'expense', currentTRM = 3700, trmUpdated = null;
+let txDetailAccId = null, txDetailCatFilter = 'all', txGlobalFilter = 'all';
 
 const DEFAULT_CATS = [
   {id:'food',name:'Food & Dining',icon:'🍽️',color:'#b8f566',budget_limit:1000000,spent:0},
@@ -1017,6 +1022,7 @@ function allMilestonesSorted(){
           goalIcon: g.icon,
           goalId: g.id,
           days,
+          currency: g.currency||'COP',
           isOpenEnded: true
         });
         return;
@@ -1041,7 +1047,7 @@ function allMilestonesSorted(){
     }
     (g.milestones||[]).forEach(m=>{
       if(!m.date) return; // skip undated milestones from timeline
-      all.push({...m,goalName:g.name,goalIcon:g.icon,goalId:g.id,days:daysUntil(m.date)});
+      all.push({...m,goalName:g.name,goalIcon:g.icon,goalId:g.id,days:daysUntil(m.date),currency:m.currency||g.currency||'COP'});
     });
     if(!(g.milestones||[]).length && g.target && g.deadline){
       all.push({name:'Final target',amount:g.target-g.saved,date:g.deadline,refundable:false,goalName:g.name,goalIcon:g.icon,goalId:g.id,days:daysUntil(g.deadline)});
@@ -1485,6 +1491,20 @@ function obGoalItem(g, i){
     '<input type="date" value="'+(g.deadline||'')+'" style="flex:1;background:var(--s2);border:1px solid var(--bd);border-radius:8px;padding:8px;color:var(--t);font-family:\'Sora\',sans-serif;font-size:11px;outline:none" onchange="obData.goals['+i+'].deadline=this.value;obData.goals['+i+'].goal_type=(obData.goals['+i+'].target>0&&this.value)?\'fixed\':\'open\';renderObStep()"/>',
     '</div>',
     urgencySelect,
+    // Currency + account row for open-ended goals
+    g.goal_type==='open'?[
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">',
+      '<select style="background:var(--s2);border:1px solid var(--bd);border-radius:8px;padding:8px 10px;color:var(--t);font-size:12px;outline:none" onchange="obData.goals['+i+'].currency=this.value;renderObStep()">',
+      '<option value="COP"'+(g.currency==='COP'||!g.currency?' selected':'')+'> COP</option>',
+      '<option value="USD"'+(g.currency==='USD'?' selected':'')+'> 💵 USD</option>',
+      '</select>',
+      '<select style="background:var(--s2);border:1px solid var(--bd);border-radius:8px;padding:8px 10px;color:var(--t);font-size:12px;outline:none" onchange="obData.goals['+i+'].account_id=this.value||null;renderObStep()">',
+      '<option value="">Any account</option>',
+      // Use obData.accounts during wizard (not yet saved to DB), fall back to saved accounts
+      ...(obData?.accounts||accounts).map(a=>'<option value="'+(a.tempId||a.id)+'"'+(g.account_id===(a.tempId||a.id)?' selected':'')+'>'+a.icon+' '+a.name+' ('+a.currency+')</option>'),
+      '</select>',
+      '</div>'
+    ].join('') : '',
     milestonesHtml,
     '<button onclick="if(!obData.goals['+i+'].milestones)obData.goals['+i+'].milestones=[];obData.goals['+i+'].milestones.push({name:\'\',amount:0,monthly_contribution:0,date:\'\',currency:\'COP\'});renderObStep()" style="background:transparent;border:1px dashed var(--bd);border-radius:8px;padding:6px;color:var(--t2);font-family:\'Sora\',sans-serif;font-size:11px;cursor:pointer;width:100%">+ Add milestone</button>',
     '</div>'
@@ -1581,7 +1601,7 @@ ${uniqueGoals.map(g=>{
     const steadyAmt = Math.ceil(amtCOP/mMonths);
     const balancedAmt = Math.ceil(amtCOP/Math.max(1,mMonths-1));
     const fullSendAmt = Math.ceil(amtCOP/Math.max(1,mMonths-2));
-    return `"${m.name}": ${fmt(amtCOP)} COP${m.currency==='USD'?` ($${m.amount} USD at TRM ${Math.round(currentTRM)})`:''}  due ${m.date} (${mMonths} months available, deadline month: ${new Date(m.date).toLocaleDateString('en-US',{month:'short',year:'numeric'})}). REQUIRED monthly allocations — use EXACTLY these numbers, do not recalculate: Steady=${fmt(steadyAmt)}/mo (funds in exactly ${mMonths}mo = on deadline), Balanced=${fmt(balancedAmt)}/mo (funds in ${Math.max(1,mMonths-1)}mo = 1mo early), Full Send=${fmt(fullSendAmt)}/mo (funds in ${Math.max(1,mMonths-2)}mo = 2mo early). VERIFY: saving Steady amount for ${mMonths} months gives ${fmt(steadyAmt*mMonths)} which covers ${fmt(amtCOP)}.`;
+    return `"${m.name}" [milestoneId:${m.id}]: ${fmt(amtCOP)} COP${m.currency==='USD'?` ($${m.amount} USD at TRM ${Math.round(currentTRM)})`:''}  due ${m.date} (${mMonths} months available, deadline month: ${new Date(m.date).toLocaleDateString('en-US',{month:'short',year:'numeric'})}). REQUIRED monthly allocations — use EXACTLY these numbers, do not recalculate: Steady=${fmt(steadyAmt)}/mo (funds in exactly ${mMonths}mo = on deadline), Balanced=${fmt(balancedAmt)}/mo (funds in ${Math.max(1,mMonths-1)}mo = 1mo early), Full Send=${fmt(fullSendAmt)}/mo (funds in ${Math.max(1,mMonths-2)}mo = 2mo early). VERIFY: saving Steady amount for ${mMonths} months gives ${fmt(steadyAmt*mMonths)} which covers ${fmt(amtCOP)}.`;
   }).join(' | ');  const isOpenEnded = !g.target && !g.deadline;
   const urgencyMonthsMap = {'this-month':1,'1-3-months':2,'3-6-months':4,'6-12-months':9,'no-rush':99};
   const hasAmount = effectiveTarget > 0;
@@ -1593,15 +1613,15 @@ ${uniqueGoals.map(g=>{
     const uMonths = uMap[g.urgency||'no-rush'];
     if(uMonths < 99){
       const suggestedMonthly = Math.round(unallocatedBase * (1/uMonths) * 0.15);
-      return `- ${g.icon} ${g.name}: URGENCY FUND — no fixed amount, urgency: ${g.urgency} (${uMonths} months). Allocate a small but meaningful amount: suggested ~${fmt(suggestedMonthly)}/mo. Scale up in Full Send, scale down in Steady.`;
+      return `- ${g.icon} ${g.name} [goalId:${g.id}]: URGENCY FUND — no fixed amount, urgency: ${g.urgency} (${uMonths} months). Allocate a small but meaningful amount: suggested ~${fmt(suggestedMonthly)}/mo. Scale up in Full Send, scale down in Steady.`;
     }
-    return `- ${g.icon} ${g.name}: LEFTOVER BUCKET — no amount, no deadline, no urgency. Allocate only whatever remains after all other goals. Priority: lowest.`;
+    return `- ${g.icon} ${g.name} [goalId:${g.id}]: LEFTOVER BUCKET — no amount, no deadline, no urgency. Allocate only whatever remains after all other goals. Priority: lowest.`;
   }
   // Case 2: amount + urgency (no deadline)
   if(hasAmount && !hasDeadlineDate){
     const uMonths = urgencyMonthsMap[g.urgency||'no-rush'];
     const monthlyAmt = Math.ceil(effectiveTarget/uMonths);
-    return `- ${g.icon} ${g.name}: needs ${fmt(effectiveTarget)} COP, no fixed deadline, urgency: ${g.urgency||'no-rush'} (${uMonths} months). REQUIRED monthly: Steady=${fmt(monthlyAmt)}/mo, Balanced=${fmt(monthlyAmt)}/mo, Full Send=${fmt(monthlyAmt)}/mo (fixed — urgency-based).`;
+    return `- ${g.icon} ${g.name} [goalId:${g.id}]: needs ${fmt(effectiveTarget)} COP, no fixed deadline, urgency: ${g.urgency||'no-rush'} (${uMonths} months). REQUIRED monthly: Steady=${fmt(monthlyAmt)}/mo, Balanced=${fmt(monthlyAmt)}/mo, Full Send=${fmt(monthlyAmt)}/mo (fixed — urgency-based).`;
   }
   // Case 3: deadline + no amount → buffer allocation
   if(!hasAmount && hasDeadlineDate && !ms.length){
@@ -1609,10 +1629,10 @@ ${uniqueGoals.map(g=>{
     const _bufSteady = Math.max(10000, Math.round(_bufBase * 0.05));
     const _bufBalanced = Math.max(10000, Math.round(_bufBase * 0.08));
     const _bufFull = Math.max(10000, Math.round(_bufBase * 0.12));
-    return `- ${g.icon} ${g.name}: BUFFER GOAL — no fixed amount, deadline ${g.deadline} (${monthsLeft}mo away). REQUIRED monthly allocations: Steady=${fmt(_bufSteady)}/mo, Balanced=${fmt(_bufBalanced)}/mo, Full Send=${fmt(_bufFull)}/mo. Use EXACTLY these numbers.`;
+    return `- ${g.icon} ${g.name} [goalId:${g.id}]: BUFFER GOAL — no fixed amount, deadline ${g.deadline} (${monthsLeft}mo away). REQUIRED monthly allocations: Steady=${fmt(_bufSteady)}/mo, Balanced=${fmt(_bufBalanced)}/mo, Full Send=${fmt(_bufFull)}/mo. Use EXACTLY these numbers.`;
   }
   // Case 1: amount + deadline (or has milestones)
-  return `- ${g.icon} ${g.name}: target ${fmt(effectiveTarget)} COP, deadline ${g.deadline} (${monthsLeft}mo away)\n  Milestones: ${msDetail||'none set'}`;
+  return `- ${g.icon} ${g.name} [goalId:${g.id}]: target ${fmt(effectiveTarget)} COP, deadline ${g.deadline} (${monthsLeft}mo away)\n  Milestones: ${msDetail||'none set'}`;
 }).join('\n')||'None'}
 
 General Savings envelope exists: ${envelopes.find(e=>e.name==='General Savings')?'yes':'no'}
@@ -1629,6 +1649,8 @@ CRITICAL ordering rule — VERIFY BEFORE RESPONDING: Steady unallocated > Balanc
 For open-ended goals: allocate small proportional amounts by urgency from what remains AFTER all milestone allocations. Do NOT pad them to use up income.
 
 For the "detail" field use "funded by [Month Year]" — calculate this as today + ceil(milestoneAmount / monthlyAllocation) months.
+
+CRITICAL: Every allocation MUST include the exact "goalId" UUID from the [goalId:...] tag and "milestoneId" UUID from the [milestoneId:...] tag shown above. These are used for routing — do not omit, rename, or invent them. For goal-level allocations with no milestone, set "milestoneId" to null.
 
 The sum of ALL allocations must NOT exceed ${fmt(unallocatedBase)}/month. The unallocated field must equal ${fmt(unallocatedBase)} minus totalMonthly exactly.
 
@@ -1656,7 +1678,9 @@ Respond ONLY in JSON:
           "type": "goal_milestone",
           "monthly": 123456,
           "detail": "hits Jun 2026 deadline exactly",
-          "milestone": "Jun 11, 2026"
+          "milestone": "Jun 11, 2026",
+          "goalId": "the-goal-uuid-from-goalId-tag",
+          "milestoneId": "the-milestone-uuid-from-milestoneId-tag"
         },
         {
           "name": "Fund for Orlando",
@@ -1664,7 +1688,9 @@ Respond ONLY in JSON:
           "type": "open_ended",
           "monthly": 456789,
           "detail": "saves whatever is left after all other commitments",
-          "milestone": null
+          "milestone": null,
+          "goalId": "the-goal-uuid-from-goalId-tag",
+          "milestoneId": null
         }
       ]
     }
@@ -1739,11 +1765,14 @@ Respond ONLY in JSON:
       const _bpAllocRowsHtml=_bpAllocs.map((alloc,i)=>{
         const _actual=i===_bpAllocs.length-1?Math.max(0,_bpRem-_bpAllocated):Math.floor(_bpRem*(alloc.monthly/_bpTotal));
         _bpAllocated+=_actual;
+        const _bpGoal=alloc.goalId?goals.find(g=>g.id===alloc.goalId):goals.find(g=>{const gL=(g.name||'').toLowerCase(),aL2=(alloc.name||'').toLowerCase();return gL===aL2||aL2.includes(gL)||gL.includes(aL2);});
+        const _bpUSD=(alloc.goalCurrency||_bpGoal?.currency)==='USD';
+        const _bpAmt=_bpUSD?('-'+fmtUSD(_actual/currentTRM)+' USD'):('-'+fmt(_actual));
         const _due=alloc.milestone?' · due '+new Date(alloc.milestone).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'';
         return '<div style="padding:12px 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--bd)">'+
           '<div><div style="font-size:12px;font-weight:500">'+alloc.icon+' '+alloc.name+'</div>'+
           '<div style="font-size:10px;color:var(--t2);margin-top:2px">'+(alloc.detail||'')+_due+'</div></div>'+
-          '<div style="font-family:\'DM Mono\',monospace;font-size:13px;color:var(--a4)">-'+fmt(_actual)+'/mo</div></div>';
+          '<div style="font-family:\'DM Mono\',monospace;font-size:13px;color:var(--a4)">-'+fmt(_actual)+'/mo</div>'+(_bpUSD?'<div style="font-size:10px;color:var(--a3)">≈ '+fmtUSD(_actual/currentTRM)+' USD → DolarApp</div>':'')+'</div>';
       }).join('');
       const detail = document.createElement('div');
       detail.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.75);backdrop-filter:blur(4px);z-index:4000;display:flex;align-items:flex-end;justify-content:center;';
@@ -1985,7 +2014,11 @@ Respond ONLY in JSON:
                     note=_pMk===_planFundedMonth[alloc.name]?`<span style="color:var(--a)">✓ last payment · funded this month</span>`:(days<=14?`⚠️ due ${alloc.milestone}`:`toward ${alloc.milestone}`);
                   }
                   _goalAllocated+=perPaycheck;
-                  _lastGoalRow={name:alloc.name,icon:alloc.icon,amount:perPaycheck,note};
+                  const _grGoal=alloc.goalId?goals.find(g=>g.id===alloc.goalId):goals.find(g=>{const gL=(g.name||'').toLowerCase(),aL=(alloc.name||'').toLowerCase();return gL===aL||aL.includes(gL)||gL.includes(aL);});
+                  // Check milestone currency first, then goal currency
+                  const _grMs=_grGoal?((_grGoal.milestones||[]).find(m=>{const mL=(m.name||'').toLowerCase(),aL2=(alloc.name||'').toLowerCase();return aL2.includes(mL)||mL.includes(aL2);})):null;
+                  const _grCurr=alloc.goalCurrency||_grMs?.currency||_grGoal?.currency||'COP';
+                  _lastGoalRow={name:alloc.name,icon:alloc.icon,amount:perPaycheck,note,currency:_grCurr};
                   goalRows.push(_lastGoalRow);
                   goalsTotal+=perPaycheck;
                 });
@@ -2021,7 +2054,7 @@ Respond ONLY in JSON:
                       <div style="font-size:11px;color:var(--t2)">${r.icon} ${r.name}</div>
                       <div style="font-size:9px;color:var(--a3);margin-top:1px">Due ${r.due} — cover from this paycheck</div>
                     </div>
-                    <div style="font-family:'DM Mono',monospace;font-size:12px;color:var(--a4)">-${fmt(r.amount)}</div>
+                    <div style="font-family:'DM Mono',monospace;font-size:12px;color:var(--a4)">${'-'+fmt(r.amount)}</div>${r.currency==='USD'?`<div style="font-size:10px;color:var(--a3)">≈ ${fmtUSD(r.amount/currentTRM)} USD → DolarApp</div>`:''}
                   </div>`).join('') : `
                   <div style="padding:8px 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--bd)">
                     <div>
@@ -2036,7 +2069,7 @@ Respond ONLY in JSON:
                       <div style="font-size:11px;color:var(--t2)">${r.icon} ${r.name}</div>
                       <div style="font-size:9px;color:${r.partial?'var(--a3)':'var(--t3)'};margin-top:1px">${r.partial?`Partial — ${fmt(r.needed-r.amount)} carries to next paycheck`:'Monthly envelope — funded'}</div>
                     </div>
-                    <div style="font-family:'DM Mono',monospace;font-size:12px;color:var(--a4)">-${fmt(r.amount)}</div>
+                    <div style="font-family:'DM Mono',monospace;font-size:12px;color:var(--a4)">${'-'+fmt(r.amount)}</div>${r.currency==='USD'?`<div style="font-size:10px;color:var(--a3)">≈ ${fmtUSD(r.amount/currentTRM)} USD → DolarApp</div>`:''}
                   </div>`).join('') : `
                   <div style="padding:8px 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--bd)">
                     <div>
@@ -2051,7 +2084,7 @@ Respond ONLY in JSON:
                       <div style="font-size:11px;color:var(--t2)">${r.icon} ${r.name}</div>
                       ${r.note?`<div style="font-size:9px;color:var(--t3);margin-top:1px">${r.note}</div>`:''}
                     </div>
-                    <div style="font-family:'DM Mono',monospace;font-size:12px;color:var(--a4)">-${fmt(r.amount)}</div>
+                    <div style="font-family:'DM Mono',monospace;font-size:12px;color:var(--a4)">${'-'+fmt(r.amount)}</div>${r.currency==='USD'?`<div style="font-size:10px;color:var(--a3)">≈ ${fmtUSD(r.amount/currentTRM)} USD → DolarApp</div>`:''}
                   </div>`).join('') : ''}
                   ${unallocated > 0 ? `
                   <div style="padding:10px 16px;display:flex;justify-content:space-between;align-items:center;background:rgba(184,245,102,.06)">
@@ -2157,8 +2190,9 @@ Respond ONLY in JSON:
                       milestone: isReady, subtle: !isReady
                     });
                   } else if(g.target>0){
+                    if(!g.target||!effectiveMonthly||!isFinite(effectiveMonthly)) return;
                     const monthsMeet = Math.ceil(g.target/effectiveMonthly);
-                    if(!g.target) return;
+                    if(!isFinite(monthsMeet)||monthsMeet>120) return; // skip if > 10 years
                     const metMonth = today.getFullYear()*12+today.getMonth()+monthsMeet;
                     const thisM = monthDate.getFullYear()*12+monthDate.getMonth();
                     const isMet = thisM >= metMonth;
@@ -2539,11 +2573,14 @@ window.showActivePlanDetail = function(){
   const _apAllocRowsHtml=_apAllocs.map((alloc,i)=>{
     const _actual=i===_apAllocs.length-1?Math.max(0,_apRem-_apAllocated):Math.floor(_apRem*(alloc.monthly/_apTotal));
     _apAllocated+=_actual;
+    const _apGoal=alloc.goalId?goals.find(g=>g.id===alloc.goalId):goals.find(g=>{const gL=(g.name||'').toLowerCase(),aL3=(alloc.name||'').toLowerCase();return gL===aL3||aL3.includes(gL)||gL.includes(aL3);});
+    const _apUSD=(alloc.goalCurrency||_apGoal?.currency)==='USD';
+    const _apAmt=_apUSD?('-'+fmtUSD(_actual/currentTRM)+' USD'):('-'+fmt(_actual));
     const _due=alloc.milestone?' · due '+alloc.milestone:'';
     return '<div style="padding:12px 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--bd)">'+
       '<div><div style="font-size:12px;font-weight:500">'+alloc.icon+' '+alloc.name+'</div>'+
       '<div style="font-size:10px;color:var(--t2);margin-top:2px">'+(alloc.detail||'')+_due+'</div></div>'+
-      '<div style="font-family:\'DM Mono\',monospace;font-size:13px;color:var(--a4)">-'+fmt(_actual)+'/mo</div></div>';
+      '<div style="font-family:\'DM Mono\',monospace;font-size:13px;color:var(--a4)">-'+fmt(_actual)+'/mo</div>'+(_apUSD?'<div style="font-size:10px;color:var(--a3)">≈ '+fmtUSD(_actual/currentTRM)+' USD → DolarApp</div>':'')+'</div>';
   }).join('');
   const detail = document.createElement('div');
   detail.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.75);backdrop-filter:blur(4px);z-index:4000;display:flex;align-items:flex-end;justify-content:center;';
@@ -2769,7 +2806,11 @@ window.showActivePlanDetail = function(){
                     note=_pMk===_aplanFundedMonth[alloc.name]?`<span style="color:var(--a)">✓ last payment · funded this month</span>`:(days<=14?`⚠️ due ${alloc.milestone}`:`toward ${alloc.milestone}`);
                   }
                   _goalAllocated+=perPaycheck;
-                  _lastGoalRow={name:alloc.name,icon:alloc.icon,amount:perPaycheck,note};
+                  const _grGoal=alloc.goalId?goals.find(g=>g.id===alloc.goalId):goals.find(g=>{const gL=(g.name||'').toLowerCase(),aL=(alloc.name||'').toLowerCase();return gL===aL||aL.includes(gL)||gL.includes(aL);});
+                  // Check milestone currency first, then goal currency
+                  const _grMs=_grGoal?((_grGoal.milestones||[]).find(m=>{const mL=(m.name||'').toLowerCase(),aL2=(alloc.name||'').toLowerCase();return aL2.includes(mL)||mL.includes(aL2);})):null;
+                  const _grCurr=alloc.goalCurrency||_grMs?.currency||_grGoal?.currency||'COP';
+                  _lastGoalRow={name:alloc.name,icon:alloc.icon,amount:perPaycheck,note,currency:_grCurr};
                   goalRows.push(_lastGoalRow);
                   goalsTotal+=perPaycheck;
                 });
@@ -2805,7 +2846,7 @@ window.showActivePlanDetail = function(){
                       <div style="font-size:11px;color:var(--t2)">${r.icon} ${r.name}</div>
                       <div style="font-size:9px;color:var(--a3);margin-top:1px">Due ${r.due} — cover from this paycheck</div>
                     </div>
-                    <div style="font-family:'DM Mono',monospace;font-size:12px;color:var(--a4)">-${fmt(r.amount)}</div>
+                    <div style="font-family:'DM Mono',monospace;font-size:12px;color:var(--a4)">${'-'+fmt(r.amount)}</div>${r.currency==='USD'?`<div style="font-size:10px;color:var(--a3)">≈ ${fmtUSD(r.amount/currentTRM)} USD → DolarApp</div>`:''}
                   </div>`).join('') : `
                   <div style="padding:8px 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--bd)">
                     <div>
@@ -2820,7 +2861,7 @@ window.showActivePlanDetail = function(){
                       <div style="font-size:11px;color:var(--t2)">${r.icon} ${r.name}</div>
                       <div style="font-size:9px;color:${r.partial?'var(--a3)':'var(--t3)'};margin-top:1px">${r.partial?`Partial — ${fmt(r.needed-r.amount)} carries to next paycheck`:'Monthly envelope — funded'}</div>
                     </div>
-                    <div style="font-family:'DM Mono',monospace;font-size:12px;color:var(--a4)">-${fmt(r.amount)}</div>
+                    <div style="font-family:'DM Mono',monospace;font-size:12px;color:var(--a4)">${'-'+fmt(r.amount)}</div>${r.currency==='USD'?`<div style="font-size:10px;color:var(--a3)">≈ ${fmtUSD(r.amount/currentTRM)} USD → DolarApp</div>`:''}
                   </div>`).join('') : `
                   <div style="padding:8px 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--bd)">
                     <div>
@@ -2835,7 +2876,7 @@ window.showActivePlanDetail = function(){
                       <div style="font-size:11px;color:var(--t2)">${r.icon} ${r.name}</div>
                       ${r.note?`<div style="font-size:9px;color:var(--t3);margin-top:1px">${r.note}</div>`:''}
                     </div>
-                    <div style="font-family:'DM Mono',monospace;font-size:12px;color:var(--a4)">-${fmt(r.amount)}</div>
+                    <div style="font-family:'DM Mono',monospace;font-size:12px;color:var(--a4)">${'-'+fmt(r.amount)}</div>${r.currency==='USD'?`<div style="font-size:10px;color:var(--a3)">≈ ${fmtUSD(r.amount/currentTRM)} USD → DolarApp</div>`:''}
                   </div>`).join('') : ''}
                   ${unallocated > 0 ? `
                   <div style="padding:10px 16px;display:flex;justify-content:space-between;align-items:center;background:rgba(184,245,102,.06)">
@@ -2937,8 +2978,9 @@ window.showActivePlanDetail = function(){
                       milestone: isReady, subtle: !isReady
                     });
                   } else if(g.target>0){
+                    if(!g.target||!effectiveMonthly||!isFinite(effectiveMonthly)) return;
                     const monthsMeet = Math.ceil(g.target/effectiveMonthly);
-                    if(!g.target) return;
+                    if(!isFinite(monthsMeet)||monthsMeet>120) return; // skip if > 10 years
                     const metMonth = today.getFullYear()*12+today.getMonth()+monthsMeet;
                     const thisM = monthDate.getFullYear()*12+monthDate.getMonth();
                     const isMet = thisM >= metMonth;
@@ -3115,8 +3157,9 @@ async function saveOnboarding(){
   }catch(e){ console.warn('Could not save ob backup', e); }
 
   try{
-    // Save accounts
+    // Save accounts (delete existing first to avoid duplicates from signup)
     if(obData.accounts.length){
+      await sb.from('accounts').delete().eq('user_id',currentUser.id);
       const {data:savedAccounts} = await sb.from('accounts').insert(obData.accounts.map((a,i)=>({
         user_id:currentUser.id,
         name:a.name,
@@ -3127,10 +3170,15 @@ async function saveOnboarding(){
         is_primary:i===0
       }))).select();
       if(savedAccounts) accounts = savedAccounts;
-      // Map tempIds to real IDs for income sources
+      // Map tempIds to real IDs for income sources and goals
+      const _tempToReal = (tempId) => savedAccounts?.[obData.accounts.findIndex(a=>a.tempId===tempId)]?.id || null;
       obData.incomes = obData.incomes.map(s=>({
         ...s,
-        account_id: savedAccounts?.[obData.accounts.findIndex(a=>a.tempId===s.account_id)]?.id || null
+        account_id: _tempToReal(s.account_id)
+      }));
+      obData.goals = obData.goals.map(g=>({
+        ...g,
+        account_id: g.account_id ? (_tempToReal(g.account_id) || g.account_id) : null
       }));
     }
 
@@ -3166,7 +3214,9 @@ async function saveOnboarding(){
           deadline:g.deadline||null,
           flex:g.goal_type==='open'?'flex':'fixed',
           goal_type:g.goal_type||'fixed',
-          urgency:g.urgency||null
+          urgency:g.urgency||null,
+          currency:g.currency||'COP',
+          account_id:g.account_id||null
         }))
       ).select();
       if(savedGoals) goals = savedGoals.map(g=>({...g,milestones:[]}));
@@ -3176,8 +3226,8 @@ async function saveOnboarding(){
         const allMilestones=[];
         obData.goals.forEach((g,gi)=>{
           (g.milestones||[]).filter(m=>m.name&&m.amount&&m.date).forEach(m=>{
-            const amtCOP = m.currency==='USD' ? Math.round(m.amount*currentTRM) : m.amount;
-            allMilestones.push({name:m.name,amount:amtCOP,date:m.date,refundable:false,goal_id:savedGoals[gi]?.id,user_id:currentUser.id,currency:'COP'});
+            // Keep original amount and currency (USD milestones stay in USD)
+            allMilestones.push({name:m.name,amount:m.amount,date:m.date,refundable:false,goal_id:savedGoals[gi]?.id,user_id:currentUser.id,currency:m.currency||'COP'});
           });
         });
         if(allMilestones.length) await sb.from('milestones').insert(allMilestones);
@@ -3223,6 +3273,7 @@ async function saveOnboarding(){
           currency:e.currency||'COP',
           freq:e.freq||'monthly',
           due_day:e.due_day||1,
+          due_days:e.due_days||null,
           account_id:e.account_id||null
         };
       }));
@@ -3283,7 +3334,7 @@ document.addEventListener('click', function(e){
   }
   if(e.target.id==='ob-add-goal-ob'){
     const d=new Date();d.setFullYear(d.getFullYear()+1);
-    obData.goals.push({name:'',icon:'🎯',goal_type:'fixed',deadline:d.toISOString().slice(0,10),flex:'fixed',urgency:null,target:0,saved:0,milestones:[]});
+    obData.goals.push({name:'',icon:'🎯',goal_type:'fixed',deadline:d.toISOString().slice(0,10),flex:'fixed',urgency:null,target:0,saved:0,milestones:[],currency:'COP',account_id:null});
     renderObStep();
   }
   if(e.target.id==='ob-add-fixed'){
@@ -3576,7 +3627,7 @@ function goto(page){
   else if(page==='accounts')     renderAccounts();
   else if(page==='goals')        renderGoals();
   else if(page==='planner')      {renderIncomes();renderPlanGoalSummary();}
-  else if(page==='reports')      renderReports();
+  
   else if(page==='yearplan'){
     // Pre-scroll before render so there's no flash of bottom-content
     window.scrollTo(0,0);
@@ -3663,37 +3714,23 @@ function renderDash(){
 
 // ── ACCOUNTS PAGE ─────────────────────────────────────────────────────────
 function renderAccounts(){
-  fetchTRM().then(()=>{
-    const totalCOP=totalBalanceCOP();
-    document.getElementById('accounts-total-line').textContent=`Total: ${fmt(totalCOP)} COP across ${accounts.length} account${accounts.length!==1?'s':''}`;
-    document.getElementById('accounts-grid').innerHTML=accounts.map(a=>{
-      const balCOP=toCOP(a.balance,a.currency);
-      const isUSD=a.currency!=='COP';
-      return `<div class="acc-card" data-aid="${a.id}" style="border-color:${a.color}33">
-        <style>.acc-card[data-aid="${a.id}"]::after{background:${a.color}}</style>
-        <div class="acc-top">
-          <div class="acc-icon" style="background:${a.color}22">${a.icon}</div>
-          <div style="text-align:right">
-            <button class="acc-edit" data-aid="${a.id}" style="background:none;border:none;color:var(--t3);cursor:pointer;font-size:12px;padding:2px 6px">✏️</button>
-          </div>
+  document.getElementById('accounts-total-line').textContent=`${accounts.length} routing account${accounts.length!==1?'s':''}`;
+  document.getElementById('accounts-grid').innerHTML=accounts.length?accounts.map(a=>`
+    <div class="acc-card" data-aid="${a.id}" style="border-color:${a.color}33;cursor:default">
+      <style>.acc-card[data-aid="${a.id}"]::after{background:${a.color}}</style>
+      <div class="acc-top">
+        <div class="acc-icon" style="background:${a.color}22">${a.icon}</div>
+        <div style="display:flex;gap:6px">
+          <button class="acc-edit" data-aid="${a.id}" style="background:none;border:none;color:var(--t2);cursor:pointer;font-size:13px;padding:4px 8px">✏️</button>
+          <button class="acc-delete" data-aid="${a.id}" style="font-size:11px;padding:4px 8px;background:none;border:1px solid var(--a4);color:var(--a4);border-radius:8px;cursor:pointer">🗑</button>
         </div>
-        <div class="acc-name">${a.name}</div>
-        <div class="acc-currency">${a.currency} account</div>
-        <div class="acc-balance" style="color:${a.color};margin-top:10px">${a.currency==='COP'?fmt(a.balance):fmtUSD(a.balance)+' USD'}</div>
-        ${isUSD?`<div class="acc-cop">≈ ${fmt(balCOP)} COP at TRM ${Math.round(currentTRM).toLocaleString()}</div>`:''}
-        <div style="margin-top:12px;display:flex;gap:8px">
-          <button class="btn btn-g acc-deposit" data-aid="${a.id}" style="flex:1;font-size:11px;padding:7px">+ Add funds</button>
-          <button class="btn btn-g acc-withdraw" data-aid="${a.id}" style="flex:1;font-size:11px;padding:7px">- Withdraw</button>
-        </div>
-      </div>`;
-    }).join('');
-  });
+      </div>
+      <div style="margin-top:12px">
+        <div style="font-size:15px;font-weight:600">${a.name}</div>
+        <div style="font-size:11px;color:var(--t2);margin-top:3px">${a.currency} account · <span style="color:${a.color}">${a.currency==='USD'?'USD savings':'COP spending'}</span></div>
+      </div>
+    </div>`).join(''):`<div style="font-size:12px;color:var(--t2);padding:8px 0">No accounts yet.</div>`;
 }
-// ── TRANSACTIONS PAGE ─────────────────────────────────────────────────────
-let txGlobalFilter = 'all';
-let txDetailAccId = null;
-let txDetailCatFilter = 'all';
-
 function renderTxPage(){
   // Always start in global view unless txDetailAccId is set
   if(txDetailAccId){
@@ -3718,10 +3755,10 @@ function renderTxPage(){
 
   document.getElementById('tx-count').textContent=`${list.length} transaction${list.length!==1?'s':''}`;
   document.getElementById('tx-list').innerHTML=list.length?list.map(tx=>{
-    const cat=catById(tx.category_id);const isInc=tx.type==='income'||tx.amount>0;const acc=accById(tx.account_id);
-    return `<div class="tx-full" data-rid="${tx.id}"><div class="txi" style="background:${isInc?'rgba(184,245,102,.15)':tx.color||cat.color+'22'}">${tx.icon||cat.icon}</div>`+
+    const cat=catById(tx.category_id)||{name:'Other',icon:'💸',color:'#7a8c82'};const isInc=tx.type==='income'||tx.amount>0;const acc=accById(tx.account_id);
+    return `<div class="tx-full" data-rid="${tx.id}"><div class="txi" style="background:${isInc?'rgba(184,245,102,.15)':((tx.color||cat.color)+'22')}">${tx.icon||cat.icon}</div>`+
       `<div><div class="txn">${tx.name}</div><div class="txm">${hdate(tx.date)}${acc?' · '+acc.icon+' '+acc.name:''} · tap to edit</div></div>`+
-      `<span class="badge" style="background:${isInc?'rgba(184,245,102,.15)':cat.color+'22'};color:${isInc?'var(--a)':cat.color}">${isInc?'Income':cat.name}</span>`+
+      `<span class="badge" style="background:${isInc?'rgba(184,245,102,.15)':(cat.color+'22')};color:${isInc?'var(--a)':cat.color}">${isInc?'Income':cat.name}</span>`+
       `<div class="txa ${isInc?'pos':'neg'}">${isInc?'+':'-'}${fmt(Math.abs(tx.amount))}</div></div>`;
   }).join(''):`<div style="padding:40px;text-align:center;color:var(--t2);font-size:13px">No transactions yet</div>`;
 }
@@ -3757,7 +3794,7 @@ function renderAccountDetail(accId){
   document.getElementById('acc-detail-filters').innerHTML =
     `<button class="fchip${txDetailCatFilter==='all'?' active':''}" data-dcf="all">All</button>`+
     (hasIncome?`<button class="fchip${txDetailCatFilter==='income'?' active':''}" data-dcf="income">💰 Income</button>`:'')+
-    usedCatIds.map(cid=>{const c=catById(cid);return `<button class="fchip${txDetailCatFilter===cid?' active':''}" data-dcf="${cid}" style="${txDetailCatFilter===cid?'':'border-color:'+c.color+'44;color:'+c.color}">${c.icon} ${c.name}</button>`;}).join('');
+    usedCatIds.map(cid=>{const c=catById(cid)||{name:'Other',icon:'💸',color:'#7a8c82'};return `<button class="fchip${txDetailCatFilter===cid?' active':''}" data-dcf="${cid}" style="${txDetailCatFilter===cid?'':'border-color:'+c.color+'44;color:'+c.color}">${c.icon} ${c.name}</button>`;}).join('');
 
   // Filter and render list
   let list = accTxs;
@@ -3766,7 +3803,7 @@ function renderAccountDetail(accId){
 
   document.getElementById('acc-detail-count').textContent = `${list.length} movement${list.length!==1?'s':''}`;
   document.getElementById('acc-detail-list').innerHTML = list.length ? list.map(tx=>{
-    const cat=catById(tx.category_id);const isInc=tx.type==='income'||tx.amount>0;
+    const cat=catById(tx.category_id)||{name:'Other',icon:'💸',color:'#7a8c82'};const isInc=tx.type==='income'||tx.amount>0;
     const displayAmt = acc.currency==='USD'
       ? (isInc?'+':'-')+fmtUSD(Math.abs(tx.original_amount||tx.amount/currentTRM))
       : (isInc?'+':'-')+fmt(Math.abs(tx.amount));
@@ -3783,6 +3820,8 @@ function renderGoals(){
   document.getElementById('goals-list').innerHTML=goals.map(g=>{
     const isOpenEnded = g.goal_type==='open';
     const p=(!isOpenEnded&&g.target>0)?Math.min(100,Math.round(g.saved/g.target*100)):null;
+    const gAccName = g.account_id ? (accounts.find(a=>a.id===g.account_id)?.name||'') : '';
+    const gCurr = g.currency||'COP';
     const nextMs=(g.milestones||[]).filter(m=>daysUntil(m.date)>=0).sort((a,b)=>new Date(a.date)-new Date(b.date))[0];
     const flexLabel={fixed:'🔒 Fixed',semiflex:'↔ Semi-flex',flex:'✓ Flexible'}[g.flex]||'';
     return `<div class="goal-card"><div style="display:flex;align-items:flex-start;justify-content:space-between">
@@ -3790,6 +3829,8 @@ function renderGoals(){
       <div><div style="font-size:15px;font-weight:600">${g.name}</div>
       <div style="display:flex;align-items:center;gap:8px;margin-top:4px">
         <span style="font-size:10px;color:var(--t2);padding:2px 8px;border-radius:20px;border:1px solid var(--bd)">${flexLabel}</span>
+        ${gCurr==='USD'?`<span style="font-size:10px;color:var(--a3);padding:2px 8px;border-radius:20px;border:1px solid var(--bd)">💵 USD</span>`:''}
+        ${gAccName?`<span style="font-size:10px;color:var(--t2);padding:2px 8px;border-radius:20px;border:1px solid var(--bd)">→ ${gAccName}</span>`:''}
         ${g.deadline?`<span style="font-size:10px;color:var(--t2)">Due ${fmtDate(g.deadline)}</span>`:`<span style="font-size:10px;color:var(--a2)">🪣 Open-ended · ${{
   'this-month':'This month',
   '1-3-months':'1–3 months',
@@ -3809,7 +3850,7 @@ function renderGoals(){
       ${g.funded?`<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:rgba(184,245,102,.08);border:1px solid rgba(184,245,102,.2);border-radius:8px;margin-bottom:8px"><span style="font-size:16px">✅</span><div><div style="font-size:12px;font-weight:600;color:var(--a)">Goal funded!</div><div style="font-size:11px;color:var(--t2)">Marked as complete</div></div></div>`:''}
       <div><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:6px">
        <span style="color:var(--t2)">${p!==null?p+'% saved':'Open-ended'}</span>
-        <span style="font-family:'DM Mono',monospace">${fmt(g.saved)}${g.target>0?' / '+fmt(g.target):' saved so far'}</span>
+        <span style="font-family:'DM Mono',monospace">${gCurr==='USD'?(fmtUSD(g.saved/currentTRM)+(g.target>0?' / '+fmtUSD(g.target/currentTRM):' saved so far')+`<span style="font-size:10px;color:var(--t2);margin-left:6px">≈ ${fmt(g.saved)} COP</span>`):(fmt(g.saved)+(g.target>0?' / '+fmt(g.target):' saved so far'))}</span>
       </div>
       ${p!==null?`<div style="height:8px;background:var(--bd);border-radius:4px;overflow:hidden"><div style="height:100%;width:${p}%;background:linear-gradient(90deg,var(--a2),var(--a));border-radius:4px"></div></div>`:
       `<div style="height:8px;background:var(--bd);border-radius:4px;overflow:hidden"><div style="height:100%;width:100%;background:linear-gradient(90deg,var(--a5),var(--a2));border-radius:4px;opacity:.4;animation:pulse-glow 2s ease-in-out infinite"></div></div>`}
@@ -3837,8 +3878,23 @@ function renderGoals(){
   }).join('');
   const sorted=allMilestonesSorted();
   if(!sorted.length){document.getElementById('all-milestones').innerHTML=`<div style="padding:16px 20px;font-size:12px;color:var(--t2)">Add milestones to see them here</div>`;return;}
-  const byMonth={};sorted.forEach(m=>{const key=new Date(m.date).toLocaleDateString('en-US',{month:'long',year:'numeric'});if(!byMonth[key])byMonth[key]=[];byMonth[key].push(m);});
-  document.getElementById('all-milestones').innerHTML=`<div style="padding:12px 16px">`+Object.entries(byMonth).map(([month,items])=>`<div style="margin-bottom:14px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><div style="font-size:11px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;color:var(--t2)">${month}</div><div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--a4)">${fmt(items.reduce((a,m)=>a+m.amount,0))} due</div></div>`+items.map(m=>{const col=urgencyColor[urgencyOf(m.days)];return `<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--s2);border:1px solid var(--bd);border-radius:8px;margin-bottom:5px"><span>${m.goalIcon}</span><div style="flex:1"><div style="font-size:12px;font-weight:500">${m.name}</div><div style="font-size:11px;color:var(--t2)">${m.goalName}</div></div><div style="text-align:right"><div style="font-family:'DM Mono',monospace;font-size:12px;color:${col}">${fmt(m.amount)}</div><div style="font-size:10px;color:${col};margin-top:1px">${m.days}d</div></div></div>`;}).join('')+'</div>').join('')+'</div>';
+  const byMonth={};sorted.forEach(m=>{
+    if(!m.date){
+      // Urgency-based: use synthetic date from today + days
+      const synthDate=new Date(); synthDate.setDate(synthDate.getDate()+(m.days||60));
+      m.date=synthDate.toISOString().slice(0,10);
+    }
+    const key=new Date(m.date).toLocaleDateString('en-US',{month:'long',year:'numeric'});
+    if(!byMonth[key])byMonth[key]=[];byMonth[key].push(m);
+  });
+  document.getElementById('all-milestones').innerHTML=`<div style="padding:12px 16px">`+Object.entries(byMonth).map(([month,items])=>`<div style="margin-bottom:14px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><div style="font-size:11px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;color:var(--t2)">${month}</div><div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--a4)">${(()=>{
+              const cop=items.filter(m=>m.currency!=='USD').reduce((a,m)=>a+m.amount,0);
+              const usd=items.filter(m=>m.currency==='USD').reduce((a,m)=>a+(m.amount||0),0);
+              const parts=[];
+              if(cop>0) parts.push(fmt(cop)+' COP');
+              if(usd>0) parts.push(fmtUSD(usd)+' USD');
+              return (parts.join(' + ')||'open') + ' due';
+            })()} </div></div>`+items.map(m=>{const col=urgencyColor[urgencyOf(m.days)];return `<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--s2);border:1px solid var(--bd);border-radius:8px;margin-bottom:5px"><span>${m.goalIcon}</span><div style="flex:1"><div style="font-size:12px;font-weight:500">${m.name}</div><div style="font-size:11px;color:var(--t2)">${m.goalName}</div></div><div style="text-align:right"><div style="font-family:'DM Mono',monospace;font-size:12px;color:${col}">${m.currency==='USD'?(m.amount>0?fmtUSD(m.amount)+' USD':'saving →'):(m.amount>0?fmt(m.amount):'open')}</div>${m.currency==='USD'&&m.amount>0?`<div style="font-size:9px;color:var(--t2)">≈ ${fmt(m.amount*currentTRM)} COP</div>`:''}<div style="font-size:10px;color:${col};margin-top:1px">${m.days}d away</div></div></div>`;}).join('')+'</div>').join('')+'</div>';
 }
 
 // ── PLANNER ───────────────────────────────────────────────────────────────
@@ -3919,7 +3975,7 @@ function renderIncomes(){
   document.getElementById('income-list').innerHTML=incomeSrc.map(s=>{
     const acc=accById(s.accountId);
     const freqLabel = s.freq==='weekly-day'?`Every ${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][s.day||5]}`:
-      s.freq==='monthly-dates'?`Monthly on ${(s.dates||[]).join(' & ')}`:`Monthly on ${s.freq.split('-')[1]}`;
+      s.freq==='monthly-dates'?`Monthly on ${(s.dates||[]).join(' & ')}`:s.freq==='biweekly'?`Biweekly · days ${(s.dates||[]).join(' & ')}`:`Monthly on ${s.freq.split('-')[1]}`;
     const amtDisplay = s.currency==='USD'?`$${s.amount} USD`:fmt(s.amount);
     return `<div class="inc-src">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
@@ -4162,7 +4218,7 @@ async function showAISplitModal(s, amtCOP, isBonus=false){
           ${!isBonus&&activePlan?`<div style="font-size:11px;color:var(--a2);margin-top:4px">Following your <strong>${activePlan.name}</strong> plan</div>`:''}
         </div>
       </div>
-      <div id="split-content" style="display:flex;flex-direction:column;align-items:center;gap:12px;padding:20px 0">
+      <div id="split-content" style="display:block;padding:20px 0;width:100%">
         <div style="width:28px;height:28px;border:2px solid var(--bd);border-top-color:var(--a2);border-radius:50%;animation:spin .8s linear infinite"></div>
         <div style="font-size:13px;color:var(--t2)">Analyzing your envelopes…</div>
       </div>
@@ -4314,10 +4370,17 @@ Respond ONLY in JSON: {"splits":[{"envelopeName":"name","envelopeIcon":"icon","a
           const isFinal=_pMk===_spayFunded[alloc.name];
           const isLast=i===allAllocs.length-1;
           const isLeftover=alloc.monthly===0;
-          // Leftover goals share whatever remains after active goal allocations
           const amount=isLast?Math.max(0,afterBE-gAlloc):isLeftover?0:Math.floor(afterBE*(alloc.monthly/totalMonthly));
           gAlloc+=amount;
-          gRows.push({envelopeName:alloc.name,envelopeIcon:alloc.icon,amount,isFinal,
+          // Resolve by ID only
+          const _pcGoal = alloc.goalId ? goals.find(g=>g.id===alloc.goalId) : null;
+          const _pcMs   = (_pcGoal && alloc.milestoneId) ? ((_pcGoal.milestones||[]).find(m=>m.id===alloc.milestoneId)) : null;
+          // Currency from alloc.goalCurrency (already set correctly by getLiveAllocations)
+          const _pcCurr = alloc.goalCurrency || 'COP';
+          const _pcUsdAcc = _pcCurr==='USD' ? (accounts.find(a=>a.currency==='USD')?.id||null) : null;
+          gRows.push({envelopeName:alloc.name, envelopeIcon:alloc.icon, amount, isFinal, currency:_pcCurr,
+            goalId:alloc.goalId||null, milestoneId:alloc.milestoneId||null,
+            account_id:_pcUsdAcc||_pcGoal?.account_id||null,
             reasoning:isFinal?'✓ last payment — funded this month!':(alloc.milestone?`toward ${new Date(alloc.milestone).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}`:alloc.detail||'per plan')});
         });
 
@@ -4352,80 +4415,151 @@ Respond ONLY in JSON: {"splits":[{"envelopeName":"name","envelopeIcon":"icon","a
     const _billRows = mo._fixedRows || [];
     const _envRows = mo._envRows || [];
 
-    document.getElementById('split-content').innerHTML = `
-      <div style="width:100%">
-        ${summaryHtml}
-        ${_billRows.length?`<div style="font-size:10px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;color:var(--t3);margin-bottom:6px;margin-top:4px">Bills this paycheck</div>`+_billRows.map(r=>`
+    document.getElementById('split-content').innerHTML =
+        summaryHtml
+      + (_billRows.length ? `<div style="font-size:10px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;color:var(--t3);margin-bottom:6px;margin-top:4px">Bills this paycheck</div>`
+          + _billRows.map(r=>`
           <div style="display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid var(--bd)">
-            <div style="font-size:18px;width:28px;text-align:center">${r.icon}</div>
-            <div style="flex:1"><div style="font-size:13px;font-weight:500">${r.name}</div><div style="font-size:11px;color:var(--a3)">Due ${r.due}</div></div>
-            <div style="font-family:'DM Mono',monospace;font-size:13px;color:var(--a4)">-${fmt(r.amount)}</div>
-          </div>`).join(''):''}
-        ${_envRows.length?`<div style="font-size:10px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;color:var(--t3);margin-bottom:6px;margin-top:10px">Spending envelopes</div>`+_envRows.map(r=>`
+            <div style="font-size:18px;width:28px;text-align:center;flex-shrink:0">${r.icon}</div>
+            <div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:500">${r.name}</div><div style="font-size:11px;color:var(--a3)">Due ${r.due}</div></div>
+            <div style="font-family:'DM Mono',monospace;font-size:13px;color:var(--a4);flex-shrink:0">-${fmt(r.amount)}</div>
+          </div>`).join('') : '')
+      + (_envRows.length ? `<div style="font-size:10px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;color:var(--t3);margin-bottom:6px;margin-top:10px">Spending envelopes</div>`
+          + _envRows.map(r=>`
           <div style="display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid var(--bd)">
-            <div style="font-size:18px;width:28px;text-align:center">${r.icon}</div>
-            <div style="flex:1"><div style="font-size:13px;font-weight:500">${r.name}</div></div>
-            <div style="font-family:'DM Mono',monospace;font-size:13px;color:var(--t2)">-${fmt(r.amount)}</div>
-          </div>`).join(''):''}
-        ${splits.length?`<div style="font-size:10px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;color:var(--t3);margin-bottom:6px;margin-top:10px">Goals</div>`:''}
-        ${splits.map((split,i)=>`
-          <div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--bd)">
-            <div style="font-size:20px;width:28px;text-align:center">${split.envelopeIcon||'📦'}</div>
-            <div style="flex:1">
-              <div style="font-size:13px;font-weight:500">${split.envelopeName}</div>
+            <div style="font-size:18px;width:28px;text-align:center;flex-shrink:0">${r.icon}</div>
+            <div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:500">${r.name}</div></div>
+            <div style="font-family:'DM Mono',monospace;font-size:13px;color:var(--t2);flex-shrink:0">-${fmt(r.amount)}</div>
+          </div>`).join('') : '')
+      + (splits.length ? `<div style="font-size:10px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;color:var(--t3);margin-bottom:6px;margin-top:10px">Goals</div>` : '')
+      + splits.map(split=>`
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--bd)">
+            <div style="flex:1;min-width:0;padding-right:12px">
+              <div style="font-size:13px;font-weight:500">${split.envelopeIcon||''} ${split.envelopeName}</div>
               <div style="font-size:11px;color:${split.isFinal?'var(--a)':'var(--t2)'};margin-top:2px">${split.reasoning}</div>
             </div>
-            <input type="number" value="${split.amount}" data-idx="${i}" class="split-amt-input"
-              style="width:110px;background:var(--s2);border:1px solid var(--bd);border-radius:8px;padding:7px 10px;color:var(--a);font-family:'DM Mono',monospace;font-size:13px;font-weight:500;outline:none;text-align:right"/>
-          </div>`).join('')}
-        ${Math.abs(unallocated)>100?`<div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;margin-top:4px">
-          <div style="font-size:12px;color:var(--t2)">Unallocated</div>
-          <div id="split-unallocated" style="font-family:'DM Mono',monospace;font-size:14px;font-weight:500;color:${unallocated>=0?'var(--a)':'var(--a4)'}">${fmt(unallocated)}</div>
-        </div>`:''}
-      </div>`;
+            <div style="text-align:right;flex-shrink:0">
+              <div style="font-family:'DM Mono',monospace;font-size:13px;color:var(--a4)">-${fmt(split.amount)}</div>
+              ${split.currency==='USD'?`<div style="font-size:10px;color:var(--a3);margin-top:2px">≈ ${fmtUSD(split.amount/currentTRM)} USD → DolarApp</div>`:''}
+            </div>
+          </div>`).join('')
+      + (Math.abs(unallocated)>100 ? `
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;margin-top:4px">
+            <div style="font-size:12px;color:var(--t2)">Unallocated</div>
+            <div style="font-family:'DM Mono',monospace;font-size:14px;font-weight:500;color:${unallocated>=0?'var(--a)':'var(--a4)'}">${fmt(unallocated)}</div>
+          </div>` : '')
+      + ((()=>{
+          // "Where to move it" — group by real user accounts only
+          const _copAcc  = accounts.find(a=>a.currency==='COP'&&a.is_primary) || accounts.find(a=>a.currency==='COP');
+          const _usdAcc  = accounts.find(a=>a.currency==='USD');
+          // byAcc key = account.id, value = {acc, copTotal, usdTotal (in USD)}
+          const byAcc = {};
+          const bucket = (accId, curr, amountCOP) => {
+            if(!amountCOP) return;
+            // Resolve to a real account — never a string label
+            const acc = (accId && accounts.find(a=>a.id===accId))
+              || (curr==='USD' ? _usdAcc : _copAcc);
+            if(!acc) return; // no matching account — silently skip
+            if(!byAcc[acc.id]) byAcc[acc.id] = {acc, copTotal:0, usdTotal:0};
+            if(curr==='USD') byAcc[acc.id].usdTotal += amountCOP/currentTRM;
+            else             byAcc[acc.id].copTotal += amountCOP;
+          };
+          // Bills & envelopes always go to primary COP account
+          (_billRows||[]).forEach(r => bucket(_copAcc?.id, 'COP', r.amount));
+          (_envRows||[]).forEach(r  => bucket(_copAcc?.id, 'COP', r.amount));
+          // Goal splits: USD currency → USD account, COP → goal's account_id or primary COP
+          splits.forEach(sp => {
+            if(!sp.amount) return;
+            const curr = sp.currency||'COP';
+            bucket(curr==='USD' ? _usdAcc?.id : (sp.account_id||_copAcc?.id), curr, sp.amount);
+          });
+          const rows = Object.values(byAcc).filter(r=>r.copTotal>0||r.usdTotal>0);
+          if(!rows.length) return '';
+          return '<div style="font-size:10px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;color:var(--t3);margin-top:14px;margin-bottom:6px">Where to move it</div>'
+            + rows.map(r => {
+                const label = `${r.acc.icon} ${r.acc.name}`;
+                const parts = [];
+                if(r.copTotal>0) parts.push(`<div style="font-family:'DM Mono',monospace;font-size:13px;color:var(--a)">${fmt(Math.round(r.copTotal))} COP</div>`);
+                if(r.usdTotal>0) parts.push(`<div style="font-family:'DM Mono',monospace;font-size:13px;color:var(--a)">${fmtUSD(r.usdTotal)} USD</div>`);
+                return `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--bd)">
+                  <div style="font-size:13px">${label}</div>
+                  <div style="text-align:right">${parts.join('')}</div>
+                </div>`;
+              }).join('');
+        })());
 
     mo._splits = splits;
     mo._amtCOP = amtCOP;
 
-    document.querySelectorAll('.split-amt-input').forEach((inp,idx)=>{
-      inp.addEventListener('input',()=>{
-        const total = Array.from(document.querySelectorAll('.split-amt-input')).reduce((s,i)=>s+(+i.value||0),0);
-        const rem = amtCOP - total;
-        document.getElementById('split-unallocated').textContent = fmt(rem);
-        document.getElementById('split-unallocated').style.color = rem>=0?'var(--a)':'var(--a4)';
-        if(mo._splits[idx]) mo._splits[idx].amount = +inp.value||0;
-      });
-    });
+    // No editable inputs - splits are fixed from plan
 
     document.getElementById('split-confirm').style.display='block';
     document.getElementById('split-confirm').onclick = async ()=>{
-      // Apply goal allocations to goal.saved
-      if(activePlan && mo._splits){
+      const today = new Date().toISOString().slice(0,10);
+      const _copAcc = accounts.find(a=>a.currency==='COP'&&a.is_primary)||accounts.find(a=>a.currency==='COP');
+      const _usdAcc = accounts.find(a=>a.currency==='USD');
+
+      // Apply splits: update goal.saved + write expense transaction for each split
+      if(mo._splits){
         for(const split of mo._splits){
           if(!split.amount||split.amount<=0) continue;
-          // Find matching goal by name
-          const sLow=(split.envelopeName||'').toLowerCase();
-          // 1. Exact match
-          let goal = goals.find(g=>(g.name||'').toLowerCase()===sLow);
-          // 2. One fully contains the other
-          if(!goal) goal = goals.find(g=>{
-            const gLow=(g.name||'').toLowerCase();
-            return gLow===sLow||gLow.includes(sLow)||sLow.includes(gLow);
-          });
-          // 3. All significant words match (avoid partial word collisions like "chandler")
-          if(!goal) goal = goals.find(g=>{
-            const gLow=(g.name||'').toLowerCase();
-            const words=sLow.split(/[-—\s]+/).filter(p=>p.length>3);
-            return words.length>0&&words.every(p=>gLow.includes(p));
-          });
+
+          // Resolve goal by ID only
+          const goal = split.goalId ? goals.find(g=>g.id===split.goalId) : null;
           if(goal){
             goal.saved=(goal.saved||0)+split.amount;
             await sb.from('goals').update({saved:goal.saved}).eq('id',goal.id);
           }
+
+          // Write expense transaction so it shows in transactions tab
+          const destAcc = split.currency==='USD' ? _usdAcc : (goal?.account_id ? accounts.find(a=>a.id===goal.account_id) : _copAcc);
+          const txData = {
+            user_id: currentUser.id,
+            name: split.envelopeName,
+            amount: -split.amount,
+            type: 'expense',
+            category_id: null,
+            account_id: destAcc?.id||_copAcc?.id||null,
+            icon: split.envelopeIcon||'🎯',
+            color: '#7a8c82',
+            date: today,
+            note: split.reasoning||'payday split'
+          };
+          const {data:txRow} = await sb.from('transactions').insert(txData).select().single();
+          if(txRow) txs.unshift(txRow);
+
+          // Update account balance
+          if(destAcc){
+            destAcc.balance = (destAcc.balance||0) - split.amount;
+            await sb.from('accounts').update({balance:destAcc.balance}).eq('id',destAcc.id);
+          }
         }
-        syncActivePlan();
-        renderCurrent();
       }
+
+      // Also record bill rows as expense transactions
+      if(mo._fixedRows){
+        for(const r of mo._fixedRows){
+          if(!r.amount||r.amount<=0) continue;
+          const txData = {
+            user_id: currentUser.id,
+            name: r.name,
+            amount: -r.amount,
+            type: 'expense',
+            category_id: null,
+            account_id: _copAcc?.id||null,
+            icon: r.icon||'📄',
+            color: '#7a8c82',
+            date: today,
+            note: `Due ${r.due}`
+          };
+          const {data:txRow} = await sb.from('transactions').insert(txData).select().single();
+          if(txRow) txs.unshift(txRow);
+          if(_copAcc){ _copAcc.balance=(_copAcc.balance||0)-r.amount; await sb.from('accounts').update({balance:_copAcc.balance}).eq('id',_copAcc.id); }
+        }
+      }
+
+      if(activePlan) syncActivePlan();
+      renderCurrent();
       showMsg('Split applied ✓');
       mo.remove();
     };
@@ -4437,7 +4571,11 @@ Respond ONLY in JSON: {"splits":[{"envelopeName":"name","envelopeIcon":"icon","a
 }
 function renderPlanGoalSummary(){
   if(!goals.length){document.getElementById('pl-goal-summary').innerHTML=`<div style="font-size:12px;color:var(--t2);padding:8px 0">No goals yet.</div>`;return;}
-  document.getElementById('pl-goal-summary').innerHTML=goals.map(g=>{const next=(g.milestones||[]).filter(m=>daysUntil(m.date)>=0).sort((a,b)=>new Date(a.date)-new Date(b.date))[0];return `<div style="padding:10px 0;border-bottom:1px solid var(--bd);display:flex;align-items:center;justify-content:space-between"><div><div style="font-size:13px;font-weight:500">${g.icon} ${g.name}</div><div style="font-size:11px;color:var(--t2);margin-top:2px">${(g.milestones||[]).length} milestones · ${fmt(g.saved)}/${fmt(g.target)}</div></div>${next?`<div style="text-align:right"><div style="font-size:11px;color:${urgencyColor[urgencyOf(daysUntil(next.date))]};font-weight:500">${fmt(next.amount)}</div><div style="font-size:10px;color:var(--t2)">${daysUntil(next.date)}d</div></div>`:`<div style="font-size:11px;color:var(--t2)">No milestones</div>`}</div>`;}).join('');
+  document.getElementById('pl-goal-summary').innerHTML=goals.map(g=>{const next=(g.milestones||[]).filter(m=>daysUntil(m.date)>=0).sort((a,b)=>new Date(a.date)-new Date(b.date))[0];const _gUSD=g.currency==='USD';const _gSaved=_gUSD?fmtUSD(g.saved/currentTRM):fmt(g.saved);const _gTarget=g.target>0?(_gUSD?fmtUSD(g.target/currentTRM):fmt(g.target)):'open';
+    const _nextAmt=next?(next.currency==='USD'?fmtUSD(next.amount):fmt(next.currency==='USD'?next.amount*currentTRM:next.amount)):'';
+    const _nextDate=next?new Date(next.date).toLocaleDateString('en-US',{month:'short',day:'numeric'}):'';
+    const _nextDays=next?daysUntil(next.date):0;
+    return `<div style="padding:10px 0;border-bottom:1px solid var(--bd);display:flex;align-items:center;justify-content:space-between"><div><div style="font-size:13px;font-weight:500">${g.icon} ${g.name}${_gUSD?' <span style="font-size:10px;color:var(--a3)">USD</span>':''}</div><div style="font-size:11px;color:var(--t2);margin-top:2px">${_gSaved}${g.target>0?' / '+_gTarget:''} · ${(g.milestones||[]).length} milestone${(g.milestones||[]).length!==1?'s':''}</div></div>${next?`<div style="text-align:right"><div style="font-size:11px;color:${urgencyColor[urgencyOf(_nextDays)]};font-weight:500">${next.name} · ${_nextAmt}</div><div style="font-size:10px;color:var(--t2)">${_nextDate} · ${_nextDays}d away</div></div>`:`<div style="font-size:11px;color:var(--t2)">No milestones</div>`}</div>`;}).join('');
 }
 async function runPlanner(){
   const weekly=incomeSrc.reduce((a,s)=>a+toWeekly(s.amount,s.freq),0);
@@ -4482,256 +4620,6 @@ async function askAI(){
 }
 
 // ── REPORTS ───────────────────────────────────────────────────────────────
-function renderReports(){
-  const now = new Date();
-  const months = [];
-  for(let i=3;i>=0;i--){
-    const d = new Date(now.getFullYear(), now.getMonth()-i, 1);
-    months.push(d.toLocaleDateString('en-US',{month:'short',year:'numeric'}));
-  }
-  if(!months.includes(repMonth)) repMonth = months[months.length-1];
-  document.getElementById('month-tabs').innerHTML=months.map(m=>`<button class="mchip${m===repMonth?' active':''}" data-m="${m}">${m}</button>`).join('');
-
-  const totalBudget = envelopes.reduce((a,e)=>a+toCOP(e.monthly_allocation,e.currency),0);
-  const totalSpent = envelopes.reduce((a,e)=>a+(e.spent||0),0);
-  const totalIncome = txs.filter(t=>t.type==='income'||t.amount>0).reduce((a,t)=>a+t.amount,0);
-
-  // Spending vs budget per envelope
-  const spendingEnvs = envelopes.filter(e=>e.type==='spending'||e.type==='fixed');
-  document.getElementById('rep-compare').innerHTML = !spendingEnvs.length
-    ? `<div style="padding:20px;text-align:center;color:var(--t2);font-size:12px">No envelopes yet</div>`
-    : spendingEnvs.map(e=>{
-        const spent = e.spent||0;
-        const alloc = e.monthly_allocation||1;
-        const mx = Math.max(alloc, spent);
-        const col = e.type==='fixed'?'var(--a3)':'var(--a2)';
-        return `<div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--bd)">
-          <div style="font-size:16px;width:24px;text-align:center">${e.icon}</div>
-          <div style="flex:1;min-width:0">
-            <div style="font-size:12px;font-weight:500;margin-bottom:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${e.name}</div>
-            <div style="display:flex;flex-direction:column;gap:3px">
-              <div style="display:flex;align-items:center;gap:6px">
-                <div style="height:5px;border-radius:2px;width:${Math.round(spent/mx*100)}px;max-width:120px;background:${col}"></div>
-                <div style="font-size:9px;color:${col}">spent</div>
-              </div>
-              <div style="display:flex;align-items:center;gap:6px">
-                <div style="height:5px;border-radius:2px;width:${Math.round(alloc/mx*100)}px;max-width:120px;background:var(--bd)"></div>
-                <div style="font-size:9px;color:var(--t2)">budget</div>
-              </div>
-            </div>
-          </div>
-          <div style="font-family:'DM Mono',monospace;font-size:12px;text-align:right;min-width:80px">
-            <div style="color:${col}">${fmt(spent)}</div>
-            <div style="color:var(--t2);font-size:10px">of ${fmt(alloc)}</div>
-          </div>
-        </div>`;
-      }).join('');
-
-  // Monthly summary
-  document.getElementById('rep-summary').innerHTML=[
-    {l:'Total income',v:fmt(totalIncome),c:'var(--a)',i:'💰'},
-    {l:'Total spent',v:fmt(totalSpent),c:'var(--a4)',i:'💸'},
-    {l:'Net savings',v:fmt(totalIncome-totalSpent),c:'var(--a2)',i:'🏦'},
-    {l:'Budget allocated',v:fmt(totalBudget),c:'var(--a3)',i:'📊'},
-    {l:'Budget used',v:totalBudget>0?Math.round(totalSpent/totalBudget*100)+'%':'—',c:'var(--t2)',i:'📈'}
-  ].map(r=>`<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--bd)">
-    <div style="display:flex;align-items:center;gap:8px"><span>${r.i}</span><span style="font-size:13px;color:var(--t2)">${r.l}</span></div>
-    <span style="font-family:'DM Mono',monospace;font-size:14px;font-weight:500;color:${r.c}">${r.v}</span>
-  </div>`).join('');
-
-  // Top spending envelopes
-  const top = [...spendingEnvs].sort((a,b)=>(b.spent||0)-(a.spent||0)).slice(0,3);
-  document.getElementById('rep-top').innerHTML = !top.length
-    ? `<div style="padding:20px;text-align:center;color:var(--t2);font-size:12px">No spending data yet</div>`
-    : `<div style="display:flex;gap:12px;flex-wrap:wrap">`+top.map((e,i)=>{
-        const col = e.type==='fixed'?'var(--a3)':'var(--a2)';
-        const pct = Math.round((e.spent||0)/e.monthly_allocation*100);
-        return `<div style="flex:1;min-width:140px;background:var(--s2);border:1px solid var(--bd);border-radius:12px;padding:16px">
-          <div style="font-size:11px;color:var(--t2);margin-bottom:8px">#${i+1}</div>
-          <div style="font-size:20px;margin-bottom:6px">${e.icon}</div>
-          <div style="font-size:13px;font-weight:600;margin-bottom:4px">${e.name}</div>
-          <div style="font-family:'DM Mono',monospace;font-size:18px;font-weight:500;color:${col}">${fmt(e.spent||0)}</div>
-          <div style="font-size:11px;color:var(--t2);margin-top:2px">${pct}% of ${fmt(e.monthly_allocation)}</div>
-          <div style="height:4px;background:var(--bd);border-radius:2px;margin-top:10px;overflow:hidden">
-            <div style="height:100%;width:${Math.min(100,pct)}%;background:${col}"></div>
-          </div>
-        </div>`;
-      }).join('')+`</div>`;
-}
-
-// ── DB OPERATIONS ─────────────────────────────────────────────────────────
-async function saveTx(){
-  const amtRaw=parseFloat(document.getElementById('tx-amt').value);
-  const desc=document.getElementById('tx-desc').value.trim();
-  const date=document.getElementById('tx-date').value;
-  const currency=document.getElementById('tx-currency').value;
-  const accountId=document.getElementById('tx-account').value;
-  if(!amtRaw||!desc){showMsg('Fill in amount and description','var(--a4)');return;}
-  // Convert to COP if needed
-  const amtCOP = currency==='USD' ? amtRaw*currentTRM : amtRaw;
-  const isIncome = txType==='income';
-  const cat = isIncome ? null : catById(txSelCat);
-  const selEnv = !isIncome ? envelopes.find(e=>e.id===txSelEnv) : null;
-  const newTx={
-    user_id:currentUser.id,
-    name:desc,
-    amount:isIncome?amtCOP:-amtCOP,
-    category_id:isIncome?null:txSelCat,
-    envelope_id:isIncome?null:(txSelEnv||null),
-    account_id:accountId||null,
-    icon:isIncome?'💰':(selEnv?.icon||cat.icon),
-    color:isIncome?'#b8f566':(cat.color),
-    date,
-    type:txType,
-    original_amount:amtRaw,
-    original_currency:currency
-  };
-  const {data,error}=await sb.from('transactions').insert(newTx).select().single();
-  if(error){showMsg('Error saving transaction','var(--a4)');console.error(error);return;}
-  txs.unshift(data);
-  if(!isIncome&&cat) cat.spent+=amtCOP;
-  if(!isIncome&&selEnv) selEnv.spent=(selEnv.spent||0)+amtCOP;
-  // Update account balance
-  if(accountId){
-    const acc=accById(accountId);
-    if(acc){
-      // If account is USD but paying in COP, convert to USD first
-      let delta;
-      if(acc.currency==='USD' && currency==='COP'){
-        delta = amtRaw / currentTRM;
-      } else if(acc.currency==='USD' && currency==='USD'){
-        delta = amtRaw;
-      } else if(acc.currency==='COP' && currency==='COP'){
-        delta = amtCOP;
-      } else {
-        delta = amtCOP;
-      }
-      acc.balance = isIncome ? acc.balance+delta : acc.balance-delta;
-      acc.balance = acc.currency==='COP' ? Math.round(acc.balance) : Math.round(acc.balance*100)/100;
-      await sb.from('accounts').update({balance:acc.balance}).eq('id',accountId);
-    }
-  }
-  closeMo('mo-tx');renderCurrent();
-  generateTxInsight(data,cat);
-  if(isIncome){
-    const isRegularPaycheck = incomeSrc.some(s=>s.label===desc);
-    if(!isRegularPaycheck) showAISplitModal(null, amtCOP, true);
-  }
-}
-
-async function saveEditTx(){
-  const id=document.getElementById('etx-id').value,desc=document.getElementById('etx-desc').value.trim(),amt=parseFloat(document.getElementById('etx-amt').value),date=document.getElementById('etx-date').value;
-  if(!desc||!amt){showMsg('Fill in description and amount','var(--a4)');return;}
-  const oldTx=txs.find(t=>t.id===id);
-  if(oldTx&&oldTx.amount<0){const oc=catById(oldTx.category_id);if(oc)oc.spent-=Math.abs(oldTx.amount);}
-  const nc=catById(etxSelCat);nc.spent+=amt;
-  const {error}=await sb.from('transactions').update({name:desc,amount:-amt,date,category_id:etxSelCat,icon:nc.icon,color:nc.color}).eq('id',id);
-  if(error){showMsg('Error updating','var(--a4)');return;}
-  const idx=txs.findIndex(t=>t.id===id);if(idx>=0)txs[idx]={...txs[idx],name:desc,amount:-amt,date,category_id:etxSelCat,icon:nc.icon,color:nc.color};
-  closeMo('mo-etx');renderCurrent();showMsg('Transaction updated ✓');
-}
-
-async function deleteEditTx(){
-  if(!confirm('Delete this transaction?'))return;
-  const id=document.getElementById('etx-id').value;
-  const tx=txs.find(t=>t.id===id);
-  if(tx&&tx.amount<0){const cat=catById(tx.category_id);if(cat)cat.spent-=Math.abs(tx.amount);}
-  if(tx&&tx.amount<0&&tx.envelope_id){const env=envelopes.find(e=>e.id===tx.envelope_id);if(env)env.spent=Math.max(0,(env.spent||0)-Math.abs(tx.amount));}
-  // Reverse the balance change on the account
-  if(tx&&tx.account_id){
-    const acc=accById(tx.account_id);
-    if(acc){
-      const isIncome=tx.type==='income'||tx.amount>0;
-      const delta=acc.currency==='USD'
-        ? Math.abs(tx.original_amount||tx.amount/currentTRM)
-        : Math.abs(tx.amount);
-      acc.balance=isIncome?acc.balance-delta:acc.balance+delta;
-      acc.balance=acc.currency==='COP'?Math.round(acc.balance):Math.round(acc.balance*100)/100;
-      await sb.from('accounts').update({balance:acc.balance}).eq('id',acc.id);
-    }
-  }
-  await sb.from('transactions').delete().eq('id',id);
-  txs=txs.filter(t=>t.id!==id);
-  closeMo('mo-etx');renderCurrent();showMsg('Transaction deleted');
-}
-
-async function saveGoal(){
-  const name=document.getElementById('gm-name').value.trim();
-  const target=parseFloat(document.getElementById('gm-target').value)||0;
-  const saved=parseFloat(document.getElementById('gm-saved').value)||0;
-  const deadline=document.getElementById('gm-deadline').value||null;
-  const icon=document.getElementById('gm-icon').value||'🎯';
-  const flex=deadline?document.getElementById('gm-flex').value:'flex';
-  const urgency=!deadline?document.getElementById('gm-urgency').value:null;
-  // Derive type: fixed if has both amount and deadline, open otherwise
-  const goal_type = (target>0 && deadline) ? 'fixed' : 'open';
-  if(!name){showMsg('Fill in goal name','var(--a4)');return;}
-  const existingId=document.getElementById('gm-id').value;
-  if(existingId){
-    await sb.from('goals').update({name,icon,target,saved,deadline,flex,goal_type,urgency}).eq('id',existingId);
-    await sb.from('milestones').delete().eq('goal_id',existingId);
-    if(pendingMilestones.length) await sb.from('milestones').insert(pendingMilestones.map(m=>({...m,goal_id:existingId,user_id:currentUser.id})));
-    const idx=goals.findIndex(g=>g.id===existingId);
-    if(idx>=0) goals[idx]={...goals[idx],name,icon,target,saved,deadline,flex,goal_type,urgency,milestones:[...pendingMilestones]};
-    syncActivePlan();renderCurrent();showMsg(`"${name}" updated ✓`);
-    checkPlanStaleness();
-  } else {
-    const {data:g,error}=await sb.from('goals').insert({user_id:currentUser.id,name,icon,target,saved,deadline,flex,goal_type,urgency}).select().single();
-    if(error){showMsg('Error saving goal','var(--a4)');return;}
-    if(pendingMilestones.length) await sb.from('milestones').insert(pendingMilestones.map(m=>({...m,goal_id:g.id,user_id:currentUser.id})));
-    goals.push({...g,milestones:[...pendingMilestones]});
-    syncActivePlan();renderCurrent();showMsg(`Goal "${name}" created!`);
-  }
-  syncActivePlan();closeMo('mo-goal');renderCurrent();checkPlanStaleness();
-}
-
-async function saveSavings(){
-  const id=document.getElementById('sav-id').value,amt=parseFloat(document.getElementById('sav-amt').value);
-  if(!amt||amt<=0){showMsg('Enter a valid amount','var(--a4)');return;}
-  const g=goals.find(x=>x.id===id);if(!g)return;
-  const newSaved=Math.min(g.target,g.saved+amt);
-  await sb.from('goals').update({saved:newSaved}).eq('id',id);
-  g.saved=newSaved;
-  closeMo('mo-sav');syncActivePlan();renderCurrent();showMsg(`${fmt(amt)} added to "${g.name}" ✓`);
-}
-
-async function saveCat(){
-  const id=document.getElementById('cat-id').value,name=document.getElementById('cat-name').value.trim(),limit=parseFloat(document.getElementById('cat-limit').value);
-  if(!name||!limit){showMsg('Fill in name and limit','var(--a4)');return;}
-  await sb.from('categories').update({name,budget_limit:limit}).eq('id',id).eq('user_id',currentUser.id);
-  const cat=catById(id);cat.name=name;cat.budget_limit=limit;
-  closeMo('mo-cat');syncActivePlan();renderCurrent();showMsg(`${cat.icon} ${name} updated ✓`);
-}
-
-async function saveAccount(){
-  const id=document.getElementById('acc-id').value;
-  const name=document.getElementById('acc-name').value.trim();
-  const icon=document.getElementById('acc-icon').value||'🏦';
-  const currency=document.getElementById('acc-currency').value;
-  const balance=parseFloat(document.getElementById('acc-balance').value)||0;
-  const color=document.getElementById('acc-color').value;
-  if(!name){showMsg('Enter account name','var(--a4)');return;}
-  if(id){
-    await sb.from('accounts').update({name,icon,currency,balance,color}).eq('id',id);
-    const acc=accById(id);if(acc)Object.assign(acc,{name,icon,currency,balance,color});
-    syncActivePlan();renderSettingsEnvelopes();showMsg(`${icon} ${name} updated ✓`);
-  } else {
-    const {data,error}=await sb.from('accounts').insert({user_id:currentUser.id,name,icon,currency,balance,color,is_primary:accounts.length===0}).select().single();
-    if(error){showMsg('Error saving account','var(--a4)');return;}
-    accounts.push(data);
-    syncActivePlan();renderSettingsEnvelopes();showMsg(`${icon} ${name} added!`);
-  }
-  closeMo('mo-account');renderCurrent();
-}
-
-async function adjustAccountBalance(accId, delta, isDeposit){
-  const acc=accById(accId);if(!acc)return;
-  acc.balance=isDeposit?acc.balance+delta:acc.balance-delta;
-  await sb.from('accounts').update({balance:acc.balance}).eq('id',accId);
-  renderAccounts();showMsg(`${acc.name} balance updated ✓`);
-}
-
-// ── MODAL HELPERS ─────────────────────────────────────────────────────────
 function makeCatGrid(gridId,sel){document.getElementById(gridId).innerHTML=cats.map(c=>`<button class="cbtn${c.id===sel?' sel':''}" data-cid="${c.id}" data-grid="${gridId}"><span>${c.icon}</span><span>${c.name.split(' ')[0]}</span></button>`).join('');}
 function makeEnvelopeGrid(){
   const spendingEnvs = envelopes.filter(e=>e.type==='spending');
@@ -4781,6 +4669,61 @@ function openTxModal(){
   openMo('mo-tx');
 }
 
+async function saveTx(){
+  const desc = document.getElementById('tx-desc').value.trim();
+  const amt  = parseFloat(document.getElementById('tx-amt').value);
+  const date = document.getElementById('tx-date').value || new Date().toISOString().slice(0,10);
+  const currency = document.getElementById('tx-currency')?.value || 'COP';
+  const accId = document.getElementById('tx-account')?.value || null;
+  const acc = accId ? accById(accId) : null;
+
+  if(!desc){showMsg('Enter a description','var(--a4)');return;}
+  if(!amt||isNaN(amt)){showMsg('Enter a valid amount','var(--a4)');return;}
+
+  const isIncome = txType==='income';
+  const amtCOP = currency==='USD' ? Math.round(amt*currentTRM) : amt;
+  const signed = isIncome ? Math.abs(amtCOP) : -Math.abs(amtCOP);
+
+  // Find category/envelope
+  const cat = isIncome ? null : catById(txSelCat);
+  const env = txSelEnv ? envelopes.find(e=>e.id===txSelEnv) : null;
+
+  const newTx = {
+    user_id: currentUser.id,
+    name: desc,
+    amount: signed,
+    type: isIncome ? 'income' : 'expense',
+    category_id: isIncome ? null : (txSelCat||null),
+    envelope_id: env?.id||null,
+    account_id: accId||null,
+    icon: isIncome ? '💰' : (env?.icon||cat?.icon||'💸'),
+    color: isIncome ? '#b8f566' : (cat?.color||'#7a8c82'),
+    date,
+  };
+
+  const {data,error} = await sb.from('transactions').insert(newTx).select().single();
+  if(error){showMsg('Error: '+error.message,'var(--a4)');console.error(error);return;}
+  txs.unshift(data);
+
+  // Update account balance
+  if(acc){
+    acc.balance = acc.currency==='COP'
+      ? (acc.balance||0) + signed
+      : (acc.balance||0) + (isIncome ? amt : -amt);
+    await sb.from('accounts').update({balance:acc.balance}).eq('id',acc.id);
+  }
+
+  // Update envelope spent if expense
+  if(!isIncome && env){
+    env.spent = (env.spent||0) + Math.abs(amtCOP);
+    await sb.from('envelopes').update({spent:env.spent}).eq('id',env.id);
+  }
+
+  closeMo('mo-tx');
+  renderCurrent();
+  showMsg(isIncome ? 'Income logged ✓' : 'Expense logged ✓');
+}
+
 function openGoalModal(id){
   document.getElementById('gm-id').value=id||'';
   if(id){
@@ -4795,6 +4738,9 @@ function openGoalModal(id){
     document.getElementById('gm-icon').value=g.icon||'🎯';
     document.getElementById('gm-flex').value=g.flex||'fixed';
     document.getElementById('gm-urgency').value=g.urgency||'no-rush';
+    if(document.getElementById('gm-currency')) document.getElementById('gm-currency').value=g.currency||'COP';
+    const _gmAcc=document.getElementById('gm-account');
+    if(_gmAcc){ _gmAcc.innerHTML='<option value="">Any account</option>'+accounts.map(a=>`<option value="${a.id}">${a.icon} ${a.name} (${a.currency})</option>`).join(''); _gmAcc.value=g.account_id||''; }
     pendingMilestones=[...(g.milestones||[]).map(m=>({...m}))];
   } else {
     document.getElementById('gm-title').textContent='New goal';
@@ -4805,6 +4751,9 @@ function openGoalModal(id){
     document.getElementById('gm-deadline').value='';
     document.getElementById('gm-flex').value='fixed';
     document.getElementById('gm-urgency').value='no-rush';
+    if(document.getElementById('gm-currency')) document.getElementById('gm-currency').value='COP';
+    const _gmAccN=document.getElementById('gm-account');
+    if(_gmAccN){ _gmAccN.innerHTML='<option value="">Any account</option>'+accounts.map(a=>`<option value="${a.id}">${a.icon} ${a.name} (${a.currency})</option>`).join(''); _gmAccN.value=''; }
     pendingMilestones=[];
   }
   updateGmUrgencyVisibility();
@@ -4966,7 +4915,7 @@ function closeAccountDrawer(){
   document.getElementById('acc-drawer').classList.remove('open');
   drawerAccId = null;
 }
-function renderCurrent(){const p=document.querySelector('.page.active')?.id?.replace('pg-','');if(p==='dashboard')renderDash();else if(p==='transactions')renderTxPage();else if(p==='accounts')renderAccounts();else if(p==='goals')renderGoals();else if(p==='reports')renderReports();else if(p==='settings')renderSettingsEnvelopes();}
+function renderCurrent(){const p=document.querySelector('.page.active')?.id?.replace('pg-','');if(p==='dashboard')renderDash();else if(p==='transactions')renderTxPage();else if(p==='accounts')renderAccounts();else if(p==='goals')renderGoals();else if(p==='settings')renderSettingsEnvelopes();}
 
 function renderSettingsEnvelopes(){
   const el = document.getElementById('settings-envelopes');
@@ -5120,6 +5069,24 @@ function openEnvelopeModal(id){
   document.getElementById('env-modal-title').textContent = env ? 'Edit envelope' : 'Add envelope';
   document.getElementById('env-modal-name').value = env?.name||'';
   document.getElementById('env-modal-icon').value = env?.icon||'📦';
+  // Always reset fields for new envelopes
+  if(!env){
+    document.getElementById('env-modal-amount').value='';
+    document.getElementById('env-modal-currency').value='COP';
+    document.getElementById('env-modal-freq').value='monthly';
+    document.getElementById('env-modal-due').value='';
+    document.getElementById('env-modal-due2a').value='';
+    document.getElementById('env-modal-due2b').value='';
+    // Reset type to spending
+    document.getElementById('env-modal-type').value='spending';
+    document.querySelectorAll('.env-type-btn').forEach(b=>{
+      const isActive=b.dataset.type==='spending';
+      b.style.background=isActive?'var(--a)':'transparent';
+      b.style.color=isActive?'#0d0f0e':'var(--t2)';
+      b.style.fontWeight=isActive?'600':'500';
+    });
+    document.getElementById('env-fixed-fields').style.display='none';
+  }
   document.getElementById('env-modal-amount').value = env?.monthly_allocation||'';
   document.getElementById('env-modal-currency').value = env?.currency||'COP';
   const type = env?.type||'spending';
@@ -5299,7 +5266,7 @@ const cbtn=t.closest('.cbtn');if(cbtn){
   const msd=t.closest('.ms-del');if(msd){pendingMilestones.splice(+msd.dataset.i,1);renderMsModal();return;}
   // Account edit/deposit/withdraw
   const accEdit=t.closest('.acc-edit');if(accEdit){openAccountModal(accEdit.dataset.aid);return;}
-  const accCard=t.closest('.acc-card');if(accCard&&!t.closest('.acc-edit')&&!t.closest('.acc-deposit')&&!t.closest('.acc-withdraw')){openAccountDrawer(accCard.dataset.aid);return;}
+  const accCard=t.closest('.acc-card');if(accCard&&!t.closest('.acc-edit')&&!t.closest('.acc-deposit')&&!t.closest('.acc-withdraw')&&!t.closest('.acc-delete')){openAccountDrawer(accCard.dataset.aid);return;}
 if(t.id==='acc-drawer-close'||t.id==='acc-drawer-overlay'){closeAccountDrawer();return;}
 if(t.id==='drawer-see-all'&&drawerAccId){
   closeAccountDrawer();
@@ -5309,6 +5276,18 @@ if(t.id==='drawer-see-all'&&drawerAccId){
   return;
 } const accDep=t.closest('.acc-deposit');
   if(accDep){const amt=parseFloat(prompt('Amount to add (in account currency):'));if(!amt||isNaN(amt))return;adjustAccountBalance(accDep.dataset.aid,amt,true);return;}
+  const accDel=t.closest('.acc-delete');
+  if(accDel){
+    e.stopPropagation();
+    const acc=accounts.find(a=>a.id===accDel.dataset.aid);
+    if(acc&&confirm(`Delete "${acc.name}"? This cannot be undone.`)){
+      sb.from('accounts').delete().eq('id',acc.id).then(()=>{
+        accounts=accounts.filter(a=>a.id!==acc.id);
+        renderAccounts();showMsg(`${acc.name} deleted`);
+      });
+    }
+    return;
+  }
   const accWith=t.closest('.acc-withdraw');
   if(accWith){const amt=parseFloat(prompt('Amount to withdraw (in account currency):'));if(!amt||isNaN(amt))return;adjustAccountBalance(accWith.dataset.aid,amt,false);return;}
   if(id==='ai-toast-close'){hideAIToast();return;}
@@ -5316,7 +5295,7 @@ if(t.id==='drawer-see-all'&&drawerAccId){
   const bar=t.closest('#ai-toast-bar');if(bar&&!t.closest('#ai-toast-close')){expandToast();return;}
   if(!t.closest('.gmenu')&&!t.closest('.gmb'))closeAllMenus();
   if(t.classList.contains('mo')){closeMo(t.id);return;}
-  const mchip=t.closest('.mchip');if(mchip){repMonth=mchip.dataset.m;renderReports();return;}
+  const mchip=t.closest('.mchip');if(mchip){repMonth=mchip.dataset.m;return;}
 const fchip=t.closest('.fchip');
 if(fchip){
   if(fchip.dataset.gf!==undefined){txGlobalFilter=fchip.dataset.gf;renderTxPage();}
@@ -5356,9 +5335,14 @@ const envDel=t.closest('.env-del');
 if(envDel){
   const env=envelopes.find(e=>e.id===envDel.dataset.eid);
   if(!confirm(`Delete "${env?.name}"?`))return;
+  const _envToDel=envelopes.find(e=>e.id===envDel.dataset.eid);
   sb.from('envelopes').delete().eq('id',envDel.dataset.eid).then(()=>{
+    // Always clean up matching fixed_expenses record regardless of type
+    if(_envToDel){
+      const _fe=fixedExpenses.find(f=>f.name===_envToDel.name);
+      if(_fe){ sb.from('fixed_expenses').delete().eq('id',_fe.id); fixedExpenses=fixedExpenses.filter(f=>f.id!==_fe.id); }
+    }
     envelopes=envelopes.filter(e=>e.id!==envDel.dataset.eid);
-    syncActivePlan();
     syncActivePlan();renderSettingsEnvelopes();showMsg('Envelope deleted');
     checkPlanStaleness();
   });
@@ -5434,71 +5418,66 @@ function getLiveAllocations(plan) {
   const liveRemaining=Math.max(0,liveIncome-liveFixed-liveSpending);
 
   return plan.allocations.map(alloc => {
-    const aLow=(alloc.name||'').toLowerCase();
+    // ── Resolve goal and milestone by ID only — no name matching ──────────
+    const matchedGoal = alloc.goalId ? goals.find(g=>g.id===alloc.goalId) : null;
+    const matchedMilestone = (matchedGoal && alloc.milestoneId)
+      ? (matchedGoal.milestones||[]).find(m=>m.id===alloc.milestoneId)
+      : null;
 
-    // Match to live goal
-    let targetAmt=0, deadlineDate=null, matchedGoal=null, isOpenEnded=false;
+    // No goal found — keep as-is (e.g. General Savings)
+    if(!matchedGoal) return {...alloc};
 
-    goals.forEach(g=>{
-      const gLow=(g.name||'').toLowerCase();
-      // Try to match via milestones first
-      (g.milestones||[]).forEach(m=>{
-        const mLow=(m.name||'').toLowerCase();
-        if(aLow.includes(mLow)||mLow.includes(aLow)||
-           aLow.split(/[\s\-—]+/).filter(p=>p.length>2).some(p=>mLow.includes(p))){
-          const v=m.currency==='USD'?Math.round(m.amount*currentTRM):(m.amount||0);
-          if(v>targetAmt){
-            targetAmt=v;
-            if(m.date) deadlineDate=new Date(m.date);
-            matchedGoal=g;
-          }
-        }
-      });
-      // Match via goal name for open-ended goals
-      if(!targetAmt&&(aLow.includes(gLow)||gLow.includes(aLow))){
-        matchedGoal=g;
-        isOpenEnded=true;
-        if(g.target>0) targetAmt=g.target;
-        if(g.deadline) deadlineDate=new Date(g.deadline);
-      }
-    });
+    // Currency: milestone currency takes priority, then goal currency
+    const goalCurrency = matchedMilestone?.currency || matchedGoal.currency || 'COP';
 
-    // No match found — keep original
-    if(!matchedGoal&&!targetAmt) return {...alloc};
-
-    let monthsToFund, detail, milestoneOut=alloc.milestone;
-
-    if(isOpenEnded&&!deadlineDate&&matchedGoal){
-      // Pure urgency-based: no deadline, just urgency
-      const urg=matchedGoal.urgency||'no-rush';
-      const urgMo=urgencyMonths[urg]||0;
-      if(!targetAmt||urgMo===0){
-        // Leftover — gets remainder after all other goals
-        return {...alloc, monthly:0, detail:'saves whatever is left after all other commitments', milestone:null};
-      }
-      // No offset for urgency goals — just urgency months
-      monthsToFund=Math.max(1,urgMo);
-      milestoneOut=null; // no due date to show
-      const fundedDate=new Date(today.getFullYear(),today.getMonth()+monthsToFund-1,1);
-      detail='funded by '+fundedDate.toLocaleDateString('en-US',{month:'short',year:'numeric'});
-    } else if(deadlineDate){
-      // Deadline-based: apply plan offset for milestone goals, no offset for open-ended
-      const monthsToDeadline=Math.max(1,
-        (deadlineDate.getFullYear()-today.getFullYear())*12+(deadlineDate.getMonth()-today.getMonth()));
-      const applyOffset=!isOpenEnded; // only apply offset for fixed milestone goals
-      monthsToFund=Math.max(1,monthsToDeadline-(applyOffset?offset:0));
-      if(!targetAmt){
-        // Buffer goal: trust AI's monthly value as-is
-        return {...alloc};
-      }
-      const fundedDate=new Date(today.getFullYear(),today.getMonth()+monthsToFund-1,1);
-      detail='funded by '+fundedDate.toLocaleDateString('en-US',{month:'short',year:'numeric'});
-    } else {
-      return {...alloc}; // can't compute, keep original
+    // Target amount in COP
+    let targetAmt = 0;
+    if(matchedMilestone){
+      targetAmt = matchedMilestone.currency==='USD'
+        ? Math.round(matchedMilestone.amount * currentTRM)
+        : (matchedMilestone.amount || 0);
+    } else if(matchedGoal.target > 0){
+      targetAmt = matchedGoal.currency==='USD'
+        ? Math.round(matchedGoal.target * currentTRM)
+        : matchedGoal.target;
     }
 
-    const liveMonthly=Math.ceil(targetAmt/monthsToFund);
-    return {...alloc, monthly:liveMonthly, detail, milestone:milestoneOut||alloc.milestone};
+    // Deadline
+    const deadlineStr = matchedMilestone?.date || matchedGoal.deadline || null;
+    const deadlineDate = deadlineStr ? new Date(deadlineStr) : null;
+
+    // No target + no deadline → leftover bucket, keep monthly=0
+    if(!targetAmt && !deadlineDate){
+      return {...alloc, monthly:0, detail:'saves whatever is left after all other commitments',
+        goalId:matchedGoal.id, milestoneId:matchedMilestone?.id||null, goalCurrency};
+    }
+
+    // No target but has deadline → buffer goal, keep AI's monthly as-is
+    if(!targetAmt && deadlineDate){
+      return {...alloc, goalId:matchedGoal.id, milestoneId:matchedMilestone?.id||null, goalCurrency};
+    }
+
+    // No deadline → urgency-based, keep AI's monthly as-is
+    if(!deadlineDate){
+      return {...alloc, goalId:matchedGoal.id, milestoneId:matchedMilestone?.id||null, goalCurrency};
+    }
+
+    // Compute live monthly from target + deadline + plan offset
+    const monthsToDeadline = Math.max(1,
+      (deadlineDate.getFullYear()-today.getFullYear())*12 + (deadlineDate.getMonth()-today.getMonth()));
+    const monthsToFund = Math.max(1, monthsToDeadline - offset);
+    const liveMonthly = Math.ceil(targetAmt / monthsToFund);
+    const fundedDate = new Date(today.getFullYear(), today.getMonth()+monthsToFund-1, 1);
+    const detail = 'funded by ' + fundedDate.toLocaleDateString('en-US',{month:'short',year:'numeric'});
+
+    return {
+      ...alloc,
+      monthly: liveMonthly,
+      detail,
+      goalId: matchedGoal.id,
+      milestoneId: matchedMilestone?.id || null,
+      goalCurrency,
+    };
   });
 }
 
@@ -5525,6 +5504,9 @@ function syncActivePlan() {
   hidePlanStaleBanner();
   // Update plan snapshot
   window._planSnapshot = getCurrentBudgetSnapshot();
+  // Show recalc indicator
+  const _ri = document.getElementById('plan-recalc-indicator');
+  if(_ri){ _ri.style.opacity='1'; setTimeout(()=>{ _ri.style.opacity='0'; },2000); }
 }
 
 function renderYearPlan() {
@@ -5618,74 +5600,32 @@ function renderYearPlan() {
   // Goal targets and funded-by month
   var goalList = baseAllocs.filter(function(a){ return a.type!=='savings' && a.name!=='General Savings' && a.monthly>0; });
   var goalTargets = {};
-  var goalFundedMonth = {}; // absolute month index (year*12+month) after which we stop deducting
+  var goalFundedMonth = {};
   goalList.forEach(function(a) {
+    // Resolve by ID only
+    var matchedGoal = a.goalId ? goals.find(function(g){ return g.id===a.goalId; }) : null;
+    var matchedMs   = (matchedGoal && a.milestoneId) ? (matchedGoal.milestones||[]).find(function(m){ return m.id===a.milestoneId; }) : null;
+
     var amt = 0;
-    if (a.milestone) {
-      goals.forEach(function(g) {
-        (g.milestones||[]).forEach(function(m) {
-          var aLow = (a.name||'').toLowerCase();
-          var mLow = (m.name||'').toLowerCase();
-          if (aLow.includes(mLow) || mLow.includes(aLow)) {
-            var v = m.currency==='USD' ? Math.round(m.amount*currentTRM) : (m.amount||0);
-            if (v > amt) amt = v;
-          }
-        });
-      });
+    if (matchedMs) {
+      amt = matchedMs.currency==='USD' ? Math.round(matchedMs.amount*currentTRM) : (matchedMs.amount||0);
+    } else if (matchedGoal && matchedGoal.target > 0) {
+      amt = matchedGoal.currency==='USD' ? Math.round(matchedGoal.target*currentTRM) : matchedGoal.target;
     }
-    // Also try matching goal.target directly by name
-    if (!amt) {
-      var _aLow2 = (a.name||'').toLowerCase();
-      goals.forEach(function(g) {
-        var _gLow = (g.name||'').toLowerCase();
-        if (_aLow2.includes(_gLow) || _gLow.includes(_aLow2)) {
-          var _gt = g.target > 0 ? (g.currency==='USD' ? Math.round(g.target*currentTRM) : g.target) : 0;
-          if (_gt > amt) amt = _gt;
-        }
-      });
-    }
-    goalTargets[a.name] = amt || (a.monthly * 12);
-    // fundedMonth = the month index when this goal is fully funded
-    // same formula as timeline: mo + ceil(target/monthly) - 1
-    if(a.milestone){
-      var _gAmt=0;
-      var _gMStr=new Date(a.milestone).toISOString().slice(0,10);
-      goals.forEach(function(g){(g.milestones||[]).forEach(function(m){
-        if(m.date===_gMStr||(m.date&&new Date(m.date).toISOString().slice(0,10)===_gMStr)){
-          var v=m.currency==='USD'?Math.round(m.amount*currentTRM):(m.amount||0);
-          if(v>_gAmt)_gAmt=v;
-        }
-      });});
-      if(!_gAmt){
-        var _aLow=(a.name||'').toLowerCase();
-        goals.forEach(function(g){(g.milestones||[]).forEach(function(m){
-          var _mLow=(m.name||'').toLowerCase();
-          var _parts=_aLow.split(/[\s\-—]+/).filter(function(p){return p.length>3;});
-          if(_parts.some(function(p){return _mLow.includes(p);})||_mLow.split(/[\s\-—]+/).filter(function(p){return p.length>3;}).some(function(p){return _aLow.includes(p);})){
-            var v=m.currency==='USD'?Math.round(m.amount*currentTRM):(m.amount||0);
-            if(v>_gAmt)_gAmt=v;
-          }
-        });});
-      }
-      // Try to parse "funded by Mon YYYY" from alloc.detail first
-      var _detailMatch=(a.detail||'').match(/funded by ([A-Za-z]+ \d{4})/);
-      if(_detailMatch){
-        var _detailDate=new Date(_detailMatch[1]+' 1');
-        goalFundedMonth[a.name]=_detailDate.getFullYear()*12+_detailDate.getMonth();
-      } else if(_gAmt&&a.monthly){
-        goalFundedMonth[a.name]=yr*12+mo+Math.ceil(_gAmt/a.monthly)-1;
-      } else {
-        var _gMDate=new Date(a.milestone);
-        var _gML=Math.max(1,(_gMDate.getFullYear()-yr)*12+(_gMDate.getMonth()-mo));
-        goalFundedMonth[a.name]=yr*12+mo+_gML;
-      }
+    goalTargets[a.name] = amt; // 0 = open-ended, no fake target
+
+    // fundedMonth: always derive from alloc.detail ("funded by Mon YYYY") — same source as timeline
+    var _detailMatch = (a.detail||'').match(/funded by ([A-Za-z]+ \d{4})/);
+    if (_detailMatch) {
+      var _detailDate = new Date(_detailMatch[1]+' 1');
+      goalFundedMonth[a.name] = _detailDate.getFullYear()*12 + _detailDate.getMonth();
+    } else if (a.milestone) {
+      // Has a deadline but no detail string — stop at deadline month
+      var _mDate = new Date(a.milestone);
+      goalFundedMonth[a.name] = _mDate.getFullYear()*12 + _mDate.getMonth();
     } else {
-      // Open-ended: use target/monthly if available, else far future
-      if(a.monthly>0 && goalTargets[a.name]>0 && goalTargets[a.name]<a.monthly*24){
-        goalFundedMonth[a.name]=yr*12+mo+Math.ceil(goalTargets[a.name]/a.monthly)-1;
-      } else {
-        goalFundedMonth[a.name]=yr*12+mo+24; // far future for pure savings
-      }
+      // Pure open-ended savings — never stops
+      goalFundedMonth[a.name] = yr*12 + mo + 24;
     }
   });
 
@@ -5706,6 +5646,14 @@ function renderYearPlan() {
       var nextP = allPaychecks[idx+1];
       var mk = p.date.getFullYear() + '-' + String(p.date.getMonth()+1).padStart(2,'0');
       var nPaychecks = paychecksPerMonth[mk] || 1;
+
+      // Reset envelope debt at the start of each new month
+      var prevMkForEnv = idx > 0 ? (allPaychecks[idx-1].date.getFullYear() + '-' + String(allPaychecks[idx-1].date.getMonth()+1).padStart(2,'0')) : null;
+      if (mk !== prevMkForEnv) {
+        envelopes.filter(function(e){ return e.type==='spending'; }).forEach(function(e){
+          envelopeDebt[e.id] = Math.round(toCOP(e.monthly_allocation, e.currency));
+        });
+      }
 
       var fixedRows = (billMap[key]||[]).map(function(f) {
         var amt = f.currency==='USD' ? f.amount*currentTRM : f.amount;
@@ -5750,7 +5698,10 @@ function renderYearPlan() {
         goalAllocated += amount;
         lastGoalRow = {name:alloc.name, icon:alloc.icon, amount:amount, _alloc:alloc};
         var _note = (pMk===goalFundedMonth[alloc.name]) ? '<span style="color:var(--a)">✓ last payment · funded this month</span>' : (alloc.milestone ? 'toward '+new Date(alloc.milestone).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : '');
-        goalRows.push({name:alloc.name, icon:alloc.icon, amount:amount, milestone:alloc.milestone, note:_note});
+        var _ypGoal = alloc.goalId ? goals.find(function(g){return g.id===alloc.goalId;}) : null;
+        var _ypMs   = (_ypGoal && alloc.milestoneId) ? (_ypGoal.milestones||[]).find(function(m){return m.id===alloc.milestoneId;}) : null;
+        var _ypCurr = alloc.goalCurrency || (_ypMs ? _ypMs.currency : null) || (_ypGoal ? _ypGoal.currency : null) || 'COP';
+        goalRows.push({name:alloc.name, icon:alloc.icon, amount:amount, milestone:alloc.milestone, note:_note, currency:_ypCurr});
         goalsTotal += amount;
       });
       // Give rounding remainder to last goal so unallocated is exact
@@ -5771,16 +5722,10 @@ function renderYearPlan() {
   function calcGoalBalances(calcs) {
     var running = {};
     baseAllocs.forEach(function(a){
-      // Start from what's already saved for this goal
+      // Start from what's already saved — use goalId, no name matching
       var savedAmt = 0;
-      var aLow = (a.name||'').toLowerCase();
-      goals.forEach(function(g){
-        var gLow = (g.name||'').toLowerCase();
-        if(aLow.includes(gLow)||gLow.includes(aLow)){
-          var s = g.saved||0;
-          if(s > savedAmt) savedAmt = s;
-        }
-      });
+      var matchedGoal = a.goalId ? goals.find(function(g){ return g.id===a.goalId; }) : null;
+      if (matchedGoal) savedAmt = matchedGoal.saved||0;
       running[a.name] = savedAmt;
     });
     var monthlyBalances = {};
@@ -5821,10 +5766,12 @@ function renderYearPlan() {
     });
 
     calc.goalRows.forEach(function(gr) {
-
-      html += '<div style="padding:7px 14px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--bd);gap:10px">';
+      html += '<div style="padding:7px 14px;display:flex;justify-content:space-between;align-items:flex-start;border-bottom:1px solid var(--bd);gap:10px">';
       html += '<div style="font-size:11px;flex:1"><span style="color:var(--t2)">' + gr.icon + ' ' + gr.name + '</span>' + (gr.note ? '<div style="font-size:9px;color:' + (gr.note.startsWith('✓') ? 'var(--a)' : 'var(--t3)') + ';margin-top:1px">' + gr.note + '</div>' : '') + '</div>';
-      html += '<div style="font-family:\'DM Mono\',monospace;font-size:11px;color:var(--a4);min-width:72px;text-align:right">-' + fmt(gr.amount) + '</div>';
+      html += '<div style="text-align:right;flex-shrink:0;min-width:72px">';
+      html += '<div style="font-family:\'DM Mono\',monospace;font-size:11px;color:var(--a4)">-' + fmt(gr.amount) + '</div>';
+      if(gr.currency==='USD') html += '<div style="font-size:9px;color:var(--a3);margin-top:1px">≈ ' + fmtUSD(gr.amount/currentTRM) + ' USD → DolarApp</div>';
+      html += '</div>';
       html += '</div>';
     });
 
@@ -5843,15 +5790,17 @@ function renderYearPlan() {
     html += '<div style="font-size:10px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;color:var(--t3);margin-bottom:8px">Goal progress</div>';
     goalList.forEach(function(a) {
       var bal = (balances && balances[a.name]) || 0;
-      var target = goalTargets[a.name] || 1;
-      var pct = Math.min(100, Math.round(bal/target*100));
-      var barColor = pct>=100?'var(--a)':pct>=66?'var(--a2)':pct>=33?'var(--a3)':'var(--t3)';
+      var target = goalTargets[a.name] || 0;
+      var isOpenEnded = !target;
+      var pct = isOpenEnded ? null : Math.min(100, Math.round(bal/target*100));
+      var barColor = pct===null ? 'var(--a2)' : pct>=100?'var(--a)':pct>=66?'var(--a2)':pct>=33?'var(--a3)':'var(--t3)';
+      var barWidth = pct===null ? 100 : pct;
       var shortName = (a.name.indexOf('—')>=0 ? a.name.split('—')[1].trim() : a.name);
       html += '<div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">';
       html += '<div style="font-size:10px;color:var(--t2);width:110px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + a.icon + ' ' + shortName + '</div>';
       html += '<div style="flex:1;height:5px;background:var(--bd);border-radius:2px;overflow:hidden">';
-      html += '<div style="width:' + pct + '%;height:100%;background:' + barColor + ';border-radius:2px"></div></div>';
-      html += '<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:' + (pct>=100?'var(--a)':'var(--t2)') + ';width:36px;text-align:right">' + pct + '%</div>';
+      html += '<div style="width:' + barWidth + '%;height:100%;background:' + barColor + ';border-radius:2px;opacity:' + (isOpenEnded?'0.3':'1') + '"></div></div>';
+      html += '<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:' + (pct>=100?'var(--a)':'var(--t2)') + ';width:36px;text-align:right">' + (isOpenEnded ? '—' : pct+'%') + '</div>';
       html += '<div style="font-family:\'DM Mono\',monospace;font-size:10px;color:var(--t3);width:80px;text-align:right">' + fmt(bal) + '</div>';
       html += '</div>';
     });
@@ -5916,15 +5865,13 @@ function renderYearPlan() {
       var isCurrent = mDate.getMonth()===today.getMonth() && mDate.getFullYear()===today.getFullYear();
       var balances = goalBalances[mk] || {};
 
-      // Goal funded events this month
-      var prevMk = monthKeys[monthKeys.indexOf(mk)-1];
+      // Goal funded events this month — fires in the exact funded month per plan
       var goalEventsHtml = '';
+      var curMkNum = parseInt(mk.split('-')[0])*12 + (parseInt(mk.split('-')[1])-1);
       goalList.forEach(function(a) {
-        var bal = balances[a.name]||0;
-        var target = goalTargets[a.name];
-        if (!target) return;
-        var prevBal = prevMk && goalBalances[prevMk] ? (goalBalances[prevMk][a.name]||0) : 0;
-        if (bal >= target && prevBal < target) {
+        var funded = goalFundedMonth[a.name];
+        if (funded === undefined || funded === null) return;
+        if (funded === curMkNum) {
           var shortName = (a.name.indexOf('—')>=0 ? a.name.split('—')[1].trim() : a.name);
           goalEventsHtml += '<div style="padding:3px 10px;border-radius:20px;background:rgba(184,245,102,.12);border:1px solid rgba(184,245,102,.25);font-size:10px;font-weight:600;color:var(--a)">🎯 ' + shortName + ' funded!</div>';
         }
@@ -6146,7 +6093,6 @@ initAuth();
 <div class="ni" data-p="goals"> Goals</div>
 <div class="nl">Planning</div>
 <div class="ni" data-p="planner"> AI Planner</div>
-<div class="ni" data-p="reports"> Reports</div>
 <div class="ni" data-p="yearplan"> Year Plan</div>
 <div class="nl">Setup</div>
 <div class="ni" data-p="shortcuts"> Shortcuts</div>
