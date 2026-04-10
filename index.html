@@ -23,7 +23,7 @@
   .mob-menu-btn{display:flex!important;}
   .sidebar{display:none!important;}
   .shell{grid-template-columns:1fr!important;}
-  .page{padding:16px;padding-top:72px;padding-bottom:80px;}
+  .page{padding:16px;padding-top:72px;padding-bottom:24px;}
   .stats-row{grid-template-columns:repeat(2,1fr);}
   .cg2,.goals-layout,.planner-layout,.rg{grid-template-columns:1fr!important;}
   .btn{padding:11px 16px;}
@@ -6172,28 +6172,9 @@ function renderYearPlan() {
 
 
 // ── MOBILE NAV ───────────────────────────────────────────────────────────────
-function setMobNav(page){
-  document.querySelectorAll('.mob-nav-btn').forEach(b=>{
-    const isActive = b.dataset.p === page;
-    b.style.color = isActive ? 'var(--a)' : 'var(--t2)';
-  });
-}
-function showMobBottomNav(){
-  const nav = document.getElementById('mob-bottom-nav');
-  if(nav && window.innerWidth <= 900) nav.style.display = 'flex';
-}
-function hideMobBottomNav(){
-  const nav = document.getElementById('mob-bottom-nav');
-  if(nav) nav.style.display = 'none';
-}
-// Show bottom nav on mobile after login
-window.addEventListener('resize', ()=>{
-  if(window.innerWidth <= 900 && document.getElementById('app-shell').classList.contains('ready')){
-    showMobBottomNav();
-  } else {
-    hideMobBottomNav();
-  }
-});
+function showMobBottomNav(){ /* bottom nav removed, using drawer */ }
+function hideMobBottomNav(){ /* bottom nav removed, using drawer */ }
+function setMobNav(p){ /* bottom nav removed, using drawer */ }
 
 // ── INIT ──────────────────────────────────────────────────────────────────
 initAuth();
@@ -6231,23 +6212,6 @@ initAuth();
   </div>
 </div>
 
-<!-- MOBILE BOTTOM NAV -->
-<nav id="mob-bottom-nav" style="display:none;position:fixed;bottom:0;left:0;right:0;background:var(--s);border-top:1px solid var(--bd);z-index:200;padding:8px 0 max(8px,env(safe-area-inset-bottom));justify-content:space-around;align-items:center;">
-  <button class="mob-nav-btn" data-p="dashboard" onclick="goto('dashboard');setMobNav('dashboard')" style="display:flex;flex-direction:column;align-items:center;gap:3px;background:none;border:none;color:var(--t2);cursor:pointer;padding:4px 12px;font-family:'Sora',sans-serif;min-width:56px">
-    <span style="font-size:18px">◈</span><span style="font-size:9px;font-weight:500">Home</span>
-  </button>
-  <button class="mob-nav-btn" data-p="transactions" onclick="goto('transactions');setMobNav('transactions')" style="display:flex;flex-direction:column;align-items:center;gap:3px;background:none;border:none;color:var(--t2);cursor:pointer;padding:4px 12px;font-family:'Sora',sans-serif;min-width:56px">
-    <span style="font-size:18px">↔</span><span style="font-size:9px;font-weight:500">Txns</span>
-  </button>
-  <button class="mob-nav-btn" data-p="goals" onclick="goto('goals');setMobNav('goals')" style="display:flex;flex-direction:column;align-items:center;gap:3px;background:none;border:none;color:var(--t2);cursor:pointer;padding:4px 12px;font-family:'Sora',sans-serif;min-width:56px">
-    <span style="font-size:18px">◎</span><span style="font-size:9px;font-weight:500">Goals</span>
-  </button>
-  <button class="mob-nav-btn" data-p="yearplan" onclick="goto('yearplan');setMobNav('yearplan')" style="display:flex;flex-direction:column;align-items:center;gap:3px;background:none;border:none;color:var(--t2);cursor:pointer;padding:4px 12px;font-family:'Sora',sans-serif;min-width:56px">
-    <span style="font-size:18px">📅</span><span style="font-size:9px;font-weight:500">Year</span>
-  </button>
-  <button class="mob-nav-btn" data-p="planner" onclick="goto('planner');setMobNav('planner')" style="display:flex;flex-direction:column;align-items:center;gap:3px;background:none;border:none;color:var(--t2);cursor:pointer;padding:4px 12px;font-family:'Sora',sans-serif;min-width:56px">
-    <span style="font-size:18px">✦</span><span style="font-size:9px;font-weight:500">AI</span>
-  </button>
-</nav>
+<!-- MOBILE BOTTOM NAV REMOVED - using drawer nav instead -->
 </body>
 </html>
