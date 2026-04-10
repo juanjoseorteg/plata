@@ -12,6 +12,7 @@
 <title>Plata — Smart Budget</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@300;400;500&family=Sora:wght@300;400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/eruda"></script>
 <style>
 .mob-menu-btn{display:none;position:fixed;top:16px;right:16px;z-index:1000;width:40px;height:40px;border-radius:10px;background:var(--s);border:1px solid var(--bd);align-items:center;justify-content:center;cursor:pointer;flex-direction:column;gap:5px;padding:10px;}
 .mob-menu-btn span{display:block;width:18px;height:2px;background:var(--t);border-radius:2px;}
@@ -977,6 +978,7 @@ nav{display:flex;flex-direction:column;gap:2px;}
 </div>
 
 <script>
+if(typeof eruda !== 'undefined') eruda.init();
 // ── CONFIG ────────────────────────────────────────────────────────────────
 const SUPABASE_URL = 'https://yzeruqrlgetmihjdsijf.supabase.co';
 // Safe date helper — returns null for invalid dates instead of throwing
