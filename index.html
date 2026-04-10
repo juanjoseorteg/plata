@@ -2629,7 +2629,7 @@ function hidePlanStaleBanner(){
   document.getElementById('plan-stale-banner')?.remove();
 }
 window.showActivePlanDetail = function(){
-  if(!activePlan) return;
+  if(!activePlan){showMsg('No active plan — run the AI Planner first','var(--a4)');return;}
   // Pre-compute proportional monthly amounts for display
   const _apAllocsBase=(activePlan.allocations||[]).filter(a=>a.type!=='savings'&&a.name!=='General Savings'&&a.monthly>0);
   const _apAllocsLeft=(activePlan.allocations||[]).filter(a=>a.type!=='savings'&&a.name!=='General Savings'&&a.monthly===0);
@@ -4643,8 +4643,8 @@ Respond ONLY in JSON: {"splits":[{"envelopeName":"name","envelopeIcon":"icon","a
     };
 
   }catch(err){
-    document.getElementById('split-content').innerHTML = `<div style="font-size:13px;color:var(--t2);text-align:center;padding:20px">Could not generate suggestion.<br>Allocate manually in Settings → Envelopes.</div>`;
-    console.error(err);
+    console.error('Split error:', err);
+    document.getElementById('split-content').innerHTML = `<div style="font-size:13px;color:var(--t2);text-align:center;padding:20px">Could not generate suggestion.<br><span style="font-size:11px;color:var(--a4);font-family:'DM Mono',monospace">${err?.message||String(err)}</span></div>`;
   }
 }
 function renderPlanGoalSummary(){
