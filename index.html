@@ -4409,16 +4409,21 @@ Respond ONLY in JSON: {"splits":[{"envelopeName":"name","envelopeIcon":"icon","a
       (activePlan.allocations||[]).forEach(alloc=>{
         if(!alloc.monthly) return;
         if(alloc.milestone){
+          const md = new Date(alloc.milestone);
+          if(isNaN(md.getTime())){ _spayFunded[alloc.name]=_spayYr*12+_spayMo+12; return; }
           let _amt=0;
-          const _mStr=new Date(alloc.milestone).toISOString().slice(0,10);
+          const _mStr=md.toISOString().slice(0,10);
           goals.forEach(g=>(g.milestones||[]).forEach(m=>{
-            if(m.date===_mStr||(m.date&&new Date(m.date).toISOString().slice(0,10)===_mStr)){
+            if(!m.date) return;
+            const mDate = new Date(m.date);
+            if(isNaN(mDate.getTime())) return;
+            if(mDate.toISOString().slice(0,10)===_mStr){
               const v=m.currency==='USD'?Math.round(m.amount*currentTRM):(m.amount||0);
               if(v>_amt)_amt=v;
             }
           }));
           if(_amt&&alloc.monthly) _spayFunded[alloc.name]=_spayYr*12+_spayMo+Math.ceil(_amt/alloc.monthly)-1;
-          else { const md=new Date(alloc.milestone); _spayFunded[alloc.name]=md.getFullYear()*12+md.getMonth(); }
+          else _spayFunded[alloc.name]=md.getFullYear()*12+md.getMonth();
         } else { _spayFunded[alloc.name]=_spayYr*12+_spayMo+12; }
       });
 
@@ -4470,7 +4475,7 @@ Respond ONLY in JSON: {"splits":[{"envelopeName":"name","envelopeIcon":"icon","a
           gRows.push({envelopeName:alloc.name, envelopeIcon:alloc.icon, amount, isFinal, currency:_pcCurr,
             goalId:alloc.goalId||null, milestoneId:alloc.milestoneId||null,
             account_id:_pcUsdAcc||_pcGoal?.account_id||null,
-            reasoning:isFinal?'✓ last payment — funded this month!':(alloc.milestone?`toward ${new Date(alloc.milestone).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}`:alloc.detail||'per plan')});
+            reasoning:isFinal?'✓ last payment — funded this month!':(alloc.milestone&&!isNaN(new Date(alloc.milestone).getTime())?`toward ${new Date(alloc.milestone).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}`:alloc.detail||'per plan')});
         });
 
         // This is the paycheck being confirmed
@@ -4661,6 +4666,9 @@ Respond ONLY in JSON: {"splits":[{"envelopeName":"name","envelopeIcon":"icon","a
 
   }catch(err){
     console.error('Split error:', err);
+    console.error('Split error stack:', err.stack);
+    console.error('activePlan allocations:', JSON.stringify(activePlan?.allocations?.slice(0,2)));
+    console.error('incomeSrc:', JSON.stringify(incomeSrc?.map(s=>({id:s.id,label:s.label,freq:s.freq,dates:s.dates}))));
     document.getElementById('split-content').innerHTML = `<div style="font-size:13px;color:var(--t2);text-align:center;padding:20px">Could not generate suggestion.<br><span style="font-size:11px;color:var(--a4);font-family:'DM Mono',monospace">${err?.message||String(err)}</span></div>`;
   }
 }
