@@ -569,16 +569,42 @@ nav{display:flex;flex-direction:column;gap:2px;}
 <!-- SHORTCUTS -->
 <div id="pg-shortcuts" class="page">
   <div class="hdr"><div><div class="pt">Apple Pay <span>Shortcut</span></div><div class="ps">Log expenses automatically after every Apple Pay payment</div></div></div>
-  <div style="display:flex;flex-direction:column;gap:14px;max-width:680px">
-    <div class="step"><div class="snum">1</div><div><div class="stit">Open Shortcuts → Automation → New Automation → Apple Pay</div><div class="sbod">This trigger fires every time you complete an Apple Pay payment on your iPhone.</div></div></div>
-    <div class="step"><div class="snum">2</div><div><div class="stit">The amount is read automatically</div><div class="sbod">Apple Pay passes the transaction amount to the shortcut — no need to type it manually.</div></div></div>
-    <div class="step"><div class="snum">3</div><div><div class="stit">Add "Choose from Menu" for envelope</div><div class="sbod" id="shortcut-envelope-list">Loading your envelopes…</div></div></div>
-    <div class="step"><div class="snum">4</div><div><div class="stit">Add "Open URL" with your Plata deep link</div><div class="sbod">This opens Plata and pre-fills the transaction with the Apple Pay amount and your envelope.</div><div class="code" id="shortcut-deep-link">plata://log?amount=[Payments Amount]&amp;env=[Chosen Item]</div></div></div>
-    <div class="step"><div class="snum">5</div><div><div class="stit">Turn off "Ask Before Running"</div><div class="sbod">So the Shortcut fires silently in the background every time you pay.</div></div></div>
+  <div style="display:flex;flex-direction:column;gap:18px;max-width:680px">
+    <div class="card" style="padding:20px">
+      <div style="font-size:11px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;color:var(--t3);margin-bottom:10px">Your Plata Token</div>
+      <div style="font-size:12px;color:var(--t2);margin-bottom:12px;line-height:1.6">This token identifies you — keep it private. Paste it into the shortcut when prompted.</div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <div id="shortcut-token" style="flex:1;font-family:'DM Mono',monospace;font-size:12px;background:var(--s2);border:1px solid var(--bd);border-radius:8px;padding:10px 14px;color:var(--a);letter-spacing:.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Loading…</div>
+        <button onclick="navigator.clipboard.writeText(document.getElementById('shortcut-token').textContent).then(()=>showMsg('Token copied!'))" style="padding:10px 14px;border-radius:8px;background:var(--s2);border:1px solid var(--bd);color:var(--t2);font-family:'Sora',sans-serif;font-size:12px;cursor:pointer;white-space:nowrap">Copy</button>
+      </div>
+    </div>
+    <div class="card" style="padding:20px">
+      <div style="font-size:11px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;color:var(--t3);margin-bottom:10px">Webhook URL</div>
+      <div style="font-size:12px;color:var(--t2);margin-bottom:12px">This is the URL the shortcut will POST to.</div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <div style="flex:1;font-family:'DM Mono',monospace;font-size:11px;background:var(--s2);border:1px solid var(--bd);border-radius:8px;padding:10px 14px;color:var(--a2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">https://yzeruqrlgetmihjdsijf.supabase.co/functions/v1/log-transaction</div>
+        <button onclick="navigator.clipboard.writeText('https://yzeruqrlgetmihjdsijf.supabase.co/functions/v1/log-transaction').then(()=>showMsg('URL copied!'))" style="padding:10px 14px;border-radius:8px;background:var(--s2);border:1px solid var(--bd);color:var(--t2);font-family:'Sora',sans-serif;font-size:12px;cursor:pointer;white-space:nowrap">Copy</button>
+      </div>
+    </div>
+    <div class="card" style="padding:20px">
+      <div style="font-size:11px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;color:var(--t3);margin-bottom:16px">Account &amp; Envelope IDs</div>
+      <div style="font-size:12px;color:var(--t2);margin-bottom:12px">Use these exact IDs as the list items in the shortcut.</div>
+      <div id="shortcut-ids-list" style="display:flex;flex-direction:column;gap:8px">Loading…</div>
+    </div>
+    <div class="card" style="padding:20px">
+      <div style="font-size:11px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;color:var(--t3);margin-bottom:16px">Setup Steps</div>
+      <div style="display:flex;flex-direction:column;gap:16px">
+        <div style="display:flex;gap:14px;align-items:flex-start"><div style="width:24px;height:24px;border-radius:50%;background:rgba(184,245,102,.12);border:1px solid rgba(184,245,102,.25);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--a);flex-shrink:0">1</div><div><div style="font-size:13px;font-weight:500;margin-bottom:3px">Open Shortcuts → Automation → New Automation</div><div style="font-size:12px;color:var(--t2);line-height:1.6">Tap +, select <strong>Transaction</strong> as the trigger under Apple Pay. Set it to run for any payment.</div></div></div>
+        <div style="display:flex;gap:14px;align-items:flex-start"><div style="width:24px;height:24px;border-radius:50%;background:rgba(184,245,102,.12);border:1px solid rgba(184,245,102,.25);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--a);flex-shrink:0">2</div><div><div style="font-size:13px;font-weight:500;margin-bottom:3px">Add "Ask for Input" — Amount</div><div style="font-size:12px;color:var(--t2);line-height:1.6">Type: <strong>Number</strong>. Prompt: <em>"How much?"</em>. Save as variable <strong>Amount</strong>.</div></div></div>
+        <div style="display:flex;gap:14px;align-items:flex-start"><div style="width:24px;height:24px;border-radius:50%;background:rgba(184,245,102,.12);border:1px solid rgba(184,245,102,.25);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--a);flex-shrink:0">3</div><div><div style="font-size:13px;font-weight:500;margin-bottom:3px">Add "Choose from List" — Account</div><div style="font-size:12px;color:var(--t2);line-height:1.6">Add your account IDs from the table above as list items. Save result as <strong>Account</strong>.</div></div></div>
+        <div style="display:flex;gap:14px;align-items:flex-start"><div style="width:24px;height:24px;border-radius:50%;background:rgba(184,245,102,.12);border:1px solid rgba(184,245,102,.25);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--a);flex-shrink:0">4</div><div><div style="font-size:13px;font-weight:500;margin-bottom:3px">Add "Choose from List" — Envelope</div><div style="font-size:12px;color:var(--t2);line-height:1.6">Add your envelope IDs from the table above as list items. Save result as <strong>Envelope</strong>.</div></div></div>
+        <div style="display:flex;gap:14px;align-items:flex-start"><div style="width:24px;height:24px;border-radius:50%;background:rgba(184,245,102,.12);border:1px solid rgba(184,245,102,.25);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--a);flex-shrink:0">5</div><div><div style="font-size:13px;font-weight:500;margin-bottom:3px">Add "Get Contents of URL"</div><div style="font-size:12px;color:var(--t2);line-height:1.6">URL: webhook above. Method: <strong>POST</strong>. Body type: <strong>JSON</strong>.</div><div style="font-family:'DM Mono',monospace;font-size:11px;background:var(--bg);border:1px solid var(--bd);border-radius:8px;padding:10px 12px;margin-top:8px;color:var(--t2);line-height:1.9">token: <span style="color:var(--a)">"paste your token here"</span><br>amount: <span style="color:var(--a2)">Amount (variable)</span><br>account_id: <span style="color:var(--a2)">Account (variable)</span><br>envelope_id: <span style="color:var(--a2)">Envelope (variable)</span></div></div></div>
+        <div style="display:flex;gap:14px;align-items:flex-start"><div style="width:24px;height:24px;border-radius:50%;background:rgba(184,245,102,.12);border:1px solid rgba(184,245,102,.25);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--a);flex-shrink:0">6</div><div><div style="font-size:13px;font-weight:500;margin-bottom:3px">Turn off "Ask Before Running"</div><div style="font-size:12px;color:var(--t2);line-height:1.6">So the shortcut fires silently after every Apple Pay transaction.</div></div></div>
+      </div>
+    </div>
   </div>
 </div>
 
-<!-- SETTINGS -->
 <div id="pg-settings" class="page">
   <div><div class="pt">Set<span>tings</span></div><div class="ps">Customize your Plata experience</div></div>
   <div style="display:flex;flex-direction:column;gap:20px;max-width:580px">
@@ -5171,17 +5197,39 @@ async function saveEnvelopeModal(){
   checkPlanStaleness();
 }
 
-function renderShortcuts(){
-  const spendingEnvs = envelopes.filter(e=>e.type==='spending');
-  const listEl = document.getElementById('shortcut-envelope-list');
-  const linkEl = document.getElementById('shortcut-deep-link');
-  if(listEl){
-    listEl.textContent = spendingEnvs.length
-      ? 'Options: '+spendingEnvs.map(e=>e.name).join(', ')+'.'
-      : 'Set up your spending envelopes first in Settings.';
+async function renderShortcuts(){
+  // Load token from profile
+  const tokenEl = document.getElementById('shortcut-token');
+  if(tokenEl){
+    const {data} = await sb.from('profiles').select('shortcut_token').eq('id', currentUser.id).single();
+    tokenEl.textContent = data?.shortcut_token || 'Not found — run SQL migration';
   }
-  if(linkEl){
-    linkEl.textContent = `plata://log?amount=[Provided Input]&env=[Chosen Item]`;
+
+  // Show account + envelope IDs
+  const idsEl = document.getElementById('shortcut-ids-list');
+  if(idsEl){
+    let html = '';
+    html += '<div style="font-size:11px;font-weight:600;color:var(--t3);margin-bottom:6px;letter-spacing:.5px">ACCOUNTS</div>';
+    accounts.forEach(a => {
+      html += `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:var(--s2);border:1px solid var(--bd);border-radius:8px;gap:12px">
+        <div style="font-size:13px">${a.icon} ${a.name} <span style="font-size:10px;color:var(--t3)">${a.currency}</span></div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--t2)">${a.id}</div>
+          <button onclick="navigator.clipboard.writeText('${a.id}').then(()=>showMsg('Copied!'))" style="padding:4px 10px;border-radius:6px;background:transparent;border:1px solid var(--bd);color:var(--t3);font-family:'Sora',sans-serif;font-size:10px;cursor:pointer">Copy</button>
+        </div>
+      </div>`;
+    });
+    html += '<div style="font-size:11px;font-weight:600;color:var(--t3);margin:12px 0 6px;letter-spacing:.5px">SPENDING ENVELOPES</div>';
+    envelopes.filter(e=>e.type==='spending').forEach(e => {
+      html += `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:var(--s2);border:1px solid var(--bd);border-radius:8px;gap:12px">
+        <div style="font-size:13px">${e.icon} ${e.name}</div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--t2)">${e.id}</div>
+          <button onclick="navigator.clipboard.writeText('${e.id}').then(()=>showMsg('Copied!'))" style="padding:4px 10px;border-radius:6px;background:transparent;border:1px solid var(--bd);color:var(--t3);font-family:'Sora',sans-serif;font-size:10px;cursor:pointer">Copy</button>
+        </div>
+      </div>`;
+    });
+    idsEl.innerHTML = html;
   }
 }
 // ── EVENTS ────────────────────────────────────────────────────────────────
