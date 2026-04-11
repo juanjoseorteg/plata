@@ -16,6 +16,12 @@
 <style>
 .mob-menu-btn{display:none;position:fixed;top:16px;right:16px;z-index:1000;width:40px;height:40px;border-radius:10px;background:var(--s);border:1px solid var(--bd);align-items:center;justify-content:center;cursor:pointer;flex-direction:column;gap:5px;padding:10px;}
 .mob-menu-btn span{display:block;width:18px;height:2px;background:var(--t);border-radius:2px;}
+.quick-log-btn{position:fixed;bottom:32px;right:24px;z-index:500;width:56px;height:56px;border-radius:50%;background:var(--a);border:none;color:#0d0f0e;font-size:26px;cursor:pointer;display:none;align-items:center;justify-content:center;box-shadow:0 4px 20px rgba(184,245,102,.4);transition:transform .15s,box-shadow .15s;}
+.quick-log-btn:active{transform:scale(.92);}
+.quick-env-chip{padding:8px 14px;border-radius:20px;border:1px solid var(--bd);background:var(--s2);color:var(--t2);font-family:'Sora',sans-serif;font-size:12px;cursor:pointer;white-space:nowrap;transition:all .15s;}
+.quick-env-chip.sel{background:var(--a2);border-color:var(--a2);color:#0d0f0e;font-weight:600;}
+.quick-acc-chip{padding:8px 14px;border-radius:20px;border:1px solid var(--bd);background:var(--s2);color:var(--t2);font-family:'Sora',sans-serif;font-size:12px;cursor:pointer;white-space:nowrap;transition:all .15s;}
+.quick-acc-chip.sel{border-width:2px;font-weight:600;}
 .mob-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);backdrop-filter:blur(4px);z-index:998;pointer-events:none;}
 .mob-overlay.open{display:block;pointer-events:all;}
 .mob-drawer{position:fixed;top:0;left:0;bottom:0;width:280px;max-width:85vw;background:var(--s);border-right:1px solid var(--bd);z-index:999;transform:translateX(-100%);transition:transform .3s cubic-bezier(.16,1,.3,1);padding:28px 16px;display:flex;flex-direction:column;gap:28px;overflow-y:auto;}
@@ -449,7 +455,6 @@ nav{display:flex;flex-direction:column;gap:2px;}
     <div class="ni" data-p="planner"><span class="ic">✦</span> AI Planner</div>
     <div class="ni" data-p="yearplan"><span class="ic">◈</span> Year Plan</div>
     <div class="nl">Setup</div>
-    <div class="ni" data-p="shortcuts"><span class="ic">⌘</span> Shortcuts</div>
     <div class="ni" data-p="settings"><span class="ic">◌</span> Settings</div>
   </nav>
   <div class="sf">
@@ -605,49 +610,6 @@ nav{display:flex;flex-direction:column;gap:2px;}
 <!-- REPORTS -->
 
 <!-- SHORTCUTS -->
-<div id="pg-shortcuts" class="page">
-  <div class="hdr"><div><div class="pt">Apple Pay <span>Shortcut</span></div><div class="ps">Log expenses automatically after every Apple Pay payment</div></div></div>
-  <div style="display:flex;flex-direction:column;gap:18px;max-width:680px">
-    <div class="card" style="padding:20px">
-      <div style="font-size:11px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;color:var(--t3);margin-bottom:8px">Your Token</div>
-      <div style="font-size:12px;color:var(--t2);margin-bottom:12px;line-height:1.6">Unique to you — paste this in step 5 when setting up the shortcut.</div>
-      <div style="display:flex;gap:8px;align-items:center">
-        <div id="shortcut-token" style="flex:1;font-family:'DM Mono',monospace;font-size:12px;background:var(--s2);border:1px solid var(--bd);border-radius:8px;padding:10px 14px;color:var(--a);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Loading…</div>
-        <button onclick="navigator.clipboard.writeText(document.getElementById('shortcut-token').textContent).then(()=>showMsg('Copied!'))" style="padding:10px 14px;border-radius:8px;background:var(--s2);border:1px solid var(--bd);color:var(--t2);font-family:'Sora',sans-serif;font-size:12px;cursor:pointer;white-space:nowrap">Copy</button>
-      </div>
-    </div>
-    <div class="card" style="padding:20px">
-      <div style="font-size:11px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;color:var(--t3);margin-bottom:8px">Authorization Header</div>
-      <div style="font-size:12px;color:var(--t2);margin-bottom:12px;line-height:1.6">Add this as the <strong>authorization</strong> header in both "Get Contents of URL" blocks (steps 2 and 10).</div>
-      <div style="display:flex;gap:8px;align-items:center">
-        <div id="shortcut-auth" style="flex:1;font-family:'DM Mono',monospace;font-size:11px;background:var(--s2);border:1px solid var(--bd);border-radius:8px;padding:10px 14px;color:var(--a2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Loading…</div>
-        <button onclick="navigator.clipboard.writeText(document.getElementById('shortcut-auth').textContent).then(()=>showMsg('Copied!'))" style="padding:10px 14px;border-radius:8px;background:var(--s2);border:1px solid var(--bd);color:var(--t2);font-family:'Sora',sans-serif;font-size:12px;cursor:pointer;white-space:nowrap">Copy</button>
-      </div>
-    </div>
-    <div class="card" style="padding:20px">
-      <div style="font-size:11px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;color:var(--t3);margin-bottom:8px">Your Accounts &amp; Envelopes</div>
-      <div style="font-size:12px;color:var(--t2);margin-bottom:12px">The shortcut fetches these dynamically — this is for reference only.</div>
-      <div id="shortcut-ids-list" style="display:flex;flex-direction:column;gap:8px">Loading…</div>
-    </div>
-    <div class="card" style="padding:20px">
-      <div style="font-size:11px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;color:var(--t3);margin-bottom:16px">Setup Steps (iOS 26)</div>
-      <div style="display:flex;flex-direction:column;gap:16px">
-        <div style="display:flex;gap:14px;align-items:flex-start"><div style="width:24px;height:24px;border-radius:50%;background:rgba(184,245,102,.12);border:1px solid rgba(184,245,102,.25);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--a);flex-shrink:0">1</div><div><div style="font-size:13px;font-weight:500;margin-bottom:3px">Create a new Automation</div><div style="font-size:12px;color:var(--t2);line-height:1.6">Open <strong>Shortcuts</strong> → <strong>Automation</strong> tab → tap <strong>+</strong> → scroll down to find <strong>Transaction</strong> under Wallet &amp; Apple Pay. Leave all cards and categories checked. Select <strong>Run Immediately</strong> → tap <strong>Next</strong>.</div></div></div>
-        <div style="display:flex;gap:14px;align-items:flex-start"><div style="width:24px;height:24px;border-radius:50%;background:rgba(184,245,102,.12);border:1px solid rgba(184,245,102,.25);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--a);flex-shrink:0">2</div><div><div style="font-size:13px;font-weight:500;margin-bottom:3px">Search "Get Contents of URL" → fetch accounts &amp; envelopes</div><div style="font-size:12px;color:var(--t2);line-height:1.6">URL: <code style="font-family:'DM Mono',monospace;font-size:10px;color:var(--a2)">https://yzeruqrlgetmihjdsijf.supabase.co/functions/v1/get-envelopes</code> · Expand (∨) → Method: <strong>POST</strong> → Headers → add key <strong>authorization</strong>, value = Authorization Header above → Request Body: <strong>JSON</strong> → add text field <strong>token</strong> = your token above.</div></div></div>
-        <div style="display:flex;gap:14px;align-items:flex-start"><div style="width:24px;height:24px;border-radius:50%;background:rgba(184,245,102,.12);border:1px solid rgba(184,245,102,.25);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--a);flex-shrink:0">3</div><div><div style="font-size:13px;font-weight:500;margin-bottom:3px">Search "Get Dictionary Value" → key: accounts</div><div style="font-size:12px;color:var(--t2);line-height:1.6">Key = <strong>accounts</strong> · "in" = <strong>Contents of URL</strong>.</div></div></div>
-        <div style="display:flex;gap:14px;align-items:flex-start"><div style="width:24px;height:24px;border-radius:50%;background:rgba(184,245,102,.12);border:1px solid rgba(184,245,102,.25);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--a);flex-shrink:0">4</div><div><div style="font-size:13px;font-weight:500;margin-bottom:3px">Search "Choose from List" → account picker</div><div style="font-size:12px;color:var(--t2);line-height:1.6">List = <strong>Dictionary Value</strong> · tap <strong>&gt;</strong> → prompt: <strong>"Which account?"</strong></div></div></div>
-        <div style="display:flex;gap:14px;align-items:flex-start"><div style="width:24px;height:24px;border-radius:50%;background:rgba(184,245,102,.12);border:1px solid rgba(184,245,102,.25);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--a);flex-shrink:0">5</div><div><div style="font-size:13px;font-weight:500;margin-bottom:3px">Search "Get Dictionary Value" → key: id (account)</div><div style="font-size:12px;color:var(--t2);line-height:1.6">Key = <strong>id</strong> · "in" = <strong>Selected Item</strong> (from account list).</div></div></div>
-        <div style="display:flex;gap:14px;align-items:flex-start"><div style="width:24px;height:24px;border-radius:50%;background:rgba(184,245,102,.12);border:1px solid rgba(184,245,102,.25);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--a);flex-shrink:0">6</div><div><div style="font-size:13px;font-weight:500;margin-bottom:3px">Search "Get Dictionary Value" → key: envelopes</div><div style="font-size:12px;color:var(--t2);line-height:1.6">Key = <strong>envelopes</strong> · "in" = <strong>Contents of URL</strong> (the first action).</div></div></div>
-        <div style="display:flex;gap:14px;align-items:flex-start"><div style="width:24px;height:24px;border-radius:50%;background:rgba(184,245,102,.12);border:1px solid rgba(184,245,102,.25);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--a);flex-shrink:0">7</div><div><div style="font-size:13px;font-weight:500;margin-bottom:3px">Search "Choose from List" → envelope picker</div><div style="font-size:12px;color:var(--t2);line-height:1.6">List = <strong>Dictionary Value</strong> (envelopes) · tap <strong>&gt;</strong> → prompt: <strong>"Which envelope?"</strong></div></div></div>
-        <div style="display:flex;gap:14px;align-items:flex-start"><div style="width:24px;height:24px;border-radius:50%;background:rgba(184,245,102,.12);border:1px solid rgba(184,245,102,.25);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--a);flex-shrink:0">8</div><div><div style="font-size:13px;font-weight:500;margin-bottom:3px">Search "Get Dictionary Value" → key: id (envelope)</div><div style="font-size:12px;color:var(--t2);line-height:1.6">Key = <strong>id</strong> · "in" = <strong>Selected Item</strong> (from envelope list).</div></div></div>
-        <div style="display:flex;gap:14px;align-items:flex-start"><div style="width:24px;height:24px;border-radius:50%;background:rgba(184,245,102,.12);border:1px solid rgba(184,245,102,.25);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--a);flex-shrink:0">9</div><div><div style="font-size:13px;font-weight:500;margin-bottom:3px">Search "Ask for Input" → amount</div><div style="font-size:12px;color:var(--t2);line-height:1.6">Type: <strong>Number</strong> · tap <strong>&gt;</strong> → prompt: <strong>"How much?"</strong> · dismiss the variable selector that appears (tap X).</div></div></div>
-        <div style="display:flex;gap:14px;align-items:flex-start"><div style="width:24px;height:24px;border-radius:50%;background:rgba(184,245,102,.12);border:1px solid rgba(184,245,102,.25);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--a);flex-shrink:0">10</div><div><div style="font-size:13px;font-weight:500;margin-bottom:3px">Search "Get Contents of URL" → log the transaction</div><div style="font-size:12px;color:var(--t2);line-height:1.6">URL: <code style="font-family:'DM Mono',monospace;font-size:10px;color:var(--a2)">https://yzeruqrlgetmihjdsijf.supabase.co/functions/v1/log-transaction</code> · Method: <strong>POST</strong> · Headers → add <strong>authorization</strong> = Authorization Header above · Body: <strong>JSON</strong> with 4 fields:</div>
-        <div style="font-family:'DM Mono',monospace;font-size:11px;background:var(--bg);border:1px solid var(--bd);border-radius:8px;padding:10px 12px;margin-top:8px;color:var(--t2);line-height:2">token → <span style="color:var(--a)">your token (text)</span><br>amount → <span style="color:var(--a2)">Ask for Input (variable)</span><br>account_id → <span style="color:var(--a2)">Dictionary Value id for account</span><br>envelope_id → <span style="color:var(--a2)">Dictionary Value id for envelope</span></div></div></div>
-        <div style="display:flex;gap:14px;align-items:flex-start"><div style="width:24px;height:24px;border-radius:50%;background:rgba(184,245,102,.12);border:1px solid rgba(184,245,102,.25);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--a);flex-shrink:0">11</div><div><div style="font-size:13px;font-weight:500;margin-bottom:3px">Save ✓</div><div style="font-size:12px;color:var(--t2);line-height:1.6">Tap the <strong>blue checkmark</strong> to save. Done — the automation fires after every Apple Pay payment, asks which account + envelope + how much, then logs it to Plata instantly.</div></div></div>
-      </div>
-    </div>
-  </div>
-</div>
 
 <div id="pg-settings" class="page">
   <div><div class="pt">Set<span>tings</span></div><div class="ps">Customize your Plata experience</div></div>
@@ -3367,6 +3329,7 @@ async function saveOnboarding(){
     document.getElementById('onboarding').style.display='none';
     document.getElementById('app-shell').classList.add('ready');
     if(window.innerWidth<=900) document.getElementById('mob-menu-btn').style.display='flex';
+    document.getElementById('quick-log-btn').style.display='flex';
     showMsg('Budget setup complete! ✓');
 
     // Reload ALL data into memory before briefing
@@ -5506,6 +5469,8 @@ document.addEventListener('input',function(e){
   if(t.classList.contains('inc-lbl')){const s=incomeSrc.find(x=>x.id===+t.dataset.sid);if(s)s.label=t.value;}
   if(t.classList.contains('inc-amt')){const s=incomeSrc.find(x=>x.id===+t.dataset.sid);if(s){s.amount=+t.value;renderIncomes();}}
   if(t.id==='settings-name'){if(currentUser)sb.from('profiles').update({name:t.value}).eq('id',currentUser.id);document.getElementById('user-name').textContent=t.value;document.getElementById('user-av').textContent=t.value.slice(0,2).toUpperCase();}
+  // Quick log amount live warning
+  if(t.id==='ql-amt') updateQuickWarn();
   // Live USD preview + currency mismatch warning
   if(t.id==='tx-amt'||t.id==='tx-currency'||t.id==='tx-account'){
     const amt=parseFloat(document.getElementById('tx-amt').value)||0;
@@ -6212,6 +6177,143 @@ function showMobBottomNav(){ /* bottom nav removed, using drawer */ }
 function hideMobBottomNav(){ /* bottom nav removed, using drawer */ }
 function setMobNav(p){ /* bottom nav removed, using drawer */ }
 
+// ── QUICK LOG ─────────────────────────────────────────────────────────────
+let qlCurrency = 'COP';
+let qlAccId = null;
+let qlEnvId = null;
+
+function openQuickLog(){
+  // Restore last used defaults
+  qlCurrency = localStorage.getItem('ql_currency')||'COP';
+  qlAccId = localStorage.getItem('ql_acc') || (accounts.find(a=>a.is_primary)||accounts[0])?.id || null;
+  qlEnvId = localStorage.getItem('ql_env') || envelopes.filter(e=>e.type==='spending')[0]?.id || null;
+
+  // Reset fields
+  document.getElementById('ql-amt').value = '';
+  document.getElementById('ql-desc').value = '';
+  document.getElementById('ql-warn').style.display = 'none';
+
+  // Currency buttons
+  setQuickCurrency(qlCurrency, false);
+
+  // Account chips
+  const accEl = document.getElementById('ql-accounts');
+  accEl.innerHTML = accounts.map(a=>`
+    <button class="quick-acc-chip${qlAccId===a.id?' sel':''}" data-aid="${a.id}"
+      style="${qlAccId===a.id?'border-color:'+a.color+';color:'+a.color+';background:'+a.color+'18;':''}"
+      onclick="selectQuickAcc('${a.id}','${a.color}')">
+      ${a.icon} ${a.name}
+    </button>`).join('');
+
+  // Envelope chips
+  const envEl = document.getElementById('ql-envs');
+  const spendEnvs = envelopes.filter(e=>e.type==='spending');
+  envEl.innerHTML = spendEnvs.map(e=>`
+    <button class="quick-env-chip${qlEnvId===e.id?' sel':''}" data-eid="${e.id}"
+      onclick="selectQuickEnv('${e.id}')">
+      ${e.icon} ${e.name}
+    </button>`).join('');
+
+  openMo('mo-quick');
+  setTimeout(()=>document.getElementById('ql-amt').focus(), 100);
+}
+
+function setQuickCurrency(cur, updateWarn=true){
+  qlCurrency = cur;
+  document.getElementById('ql-cop').style.background = cur==='COP'?'var(--a)':'var(--s2)';
+  document.getElementById('ql-cop').style.color = cur==='COP'?'#0d0f0e':'var(--t2)';
+  document.getElementById('ql-cop').style.border = cur==='COP'?'none':'1px solid var(--bd)';
+  document.getElementById('ql-usd').style.background = cur==='USD'?'var(--a2)':'var(--s2)';
+  document.getElementById('ql-usd').style.color = cur==='USD'?'#0d0f0e':'var(--t2)';
+  document.getElementById('ql-usd').style.border = cur==='USD'?'none':'1px solid var(--bd)';
+  if(updateWarn) updateQuickWarn();
+}
+
+function selectQuickAcc(id, color){
+  qlAccId = id;
+  document.querySelectorAll('.quick-acc-chip').forEach(b=>{
+    const isSelected = b.dataset.aid===id;
+    b.classList.toggle('sel', isSelected);
+    b.style.borderColor = isSelected ? color : '';
+    b.style.color = isSelected ? color : '';
+    b.style.background = isSelected ? color+'18' : '';
+  });
+  updateQuickWarn();
+}
+
+function selectQuickEnv(id){
+  qlEnvId = id;
+  document.querySelectorAll('.quick-env-chip').forEach(b=>b.classList.toggle('sel', b.dataset.eid===id));
+}
+
+function updateQuickWarn(){
+  const acc = qlAccId ? accById(qlAccId) : null;
+  const warn = document.getElementById('ql-warn');
+  if(!warn||!acc) return;
+  const amt = parseFloat(document.getElementById('ql-amt')?.value)||0;
+  if(acc.currency==='USD'&&qlCurrency==='COP'){
+    warn.style.display='block';
+    warn.textContent='⚠️ COP amount going to USD account — will convert'+(amt>0?' '+fmt(amt)+' COP → '+fmtUSD(amt/currentTRM)+' USD':'')+ ' at TRM';
+  } else if(acc.currency==='COP'&&qlCurrency==='USD'){
+    warn.style.display='block';
+    warn.textContent='⚠️ USD amount going to COP account — will convert'+(amt>0?' $'+amt+' → '+fmt(Math.round(amt*currentTRM))+' COP':'')+ ' at TRM';
+  } else {
+    warn.style.display='none';
+  }
+}
+
+async function saveQuickLog(){
+  const amt = parseFloat(document.getElementById('ql-amt').value);
+  const desc = document.getElementById('ql-desc').value.trim() || envelopes.find(e=>e.id===qlEnvId)?.name || 'Expense';
+  if(!amt||isNaN(amt)){showMsg('Enter an amount','var(--a4)');return;}
+  if(!qlAccId){showMsg('Select an account','var(--a4)');return;}
+
+  const acc = accById(qlAccId);
+  const env = qlEnvId ? envelopes.find(e=>e.id===qlEnvId) : null;
+  const amtCOP = qlCurrency==='USD' ? Math.round(amt*currentTRM) : amt;
+
+  const newTx = {
+    user_id: currentUser.id,
+    name: desc,
+    amount: -Math.abs(amtCOP),
+    type: 'expense',
+    category_id: null,
+    envelope_id: qlEnvId||null,
+    account_id: qlAccId,
+    icon: env?.icon||'💸',
+    color: '#7a8c82',
+    date: new Date().toISOString().slice(0,10),
+  };
+
+  const {data,error} = await sb.from('transactions').insert(newTx).select().single();
+  if(error){showMsg('Error: '+error.message,'var(--a4)');return;}
+  txs.unshift(data);
+
+  // Update account balance
+  if(acc){
+    if(acc.currency===qlCurrency) acc.balance=(acc.balance||0)-amt;
+    else if(acc.currency==='COP') acc.balance=(acc.balance||0)-amtCOP;
+    else acc.balance=(acc.balance||0)-(amt/currentTRM);
+    await sb.from('accounts').update({balance:acc.balance}).eq('id',acc.id);
+  }
+
+  // Update envelope spent
+  if(env){
+    env.spent=(env.spent||0)+Math.abs(amtCOP);
+    await sb.from('envelopes').update({spent:env.spent}).eq('id',env.id);
+  }
+
+  // Save last used for next time
+  localStorage.setItem('ql_currency', qlCurrency);
+  localStorage.setItem('ql_acc', qlAccId);
+  if(qlEnvId) localStorage.setItem('ql_env', qlEnvId);
+
+  closeMo('mo-quick');
+  renderCurrent();
+  showMsg('Logged ✓');
+  generateTxInsight(data, null);
+}
+
 // ── INIT ──────────────────────────────────────────────────────────────────
 initAuth();
 </script>
@@ -6233,7 +6335,6 @@ initAuth();
 <div class="ni" data-p="planner"> AI Planner</div>
 <div class="ni" data-p="yearplan"> Year Plan</div>
 <div class="nl">Setup</div>
-<div class="ni" data-p="shortcuts"> Shortcuts</div>
 <div class="ni" data-p="settings"> Settings</div>
   </nav>
   <div style="margin-top:auto;padding:12px;background:var(--s2);border-radius:10px;border:1px solid var(--bd)">
@@ -6248,6 +6349,37 @@ initAuth();
   </div>
 </div>
 
-<!-- MOBILE BOTTOM NAV REMOVED - using drawer nav instead -->
+<!-- QUICK LOG BUTTON -->
+<button class="quick-log-btn" id="quick-log-btn" onclick="openQuickLog()">+</button>
+
+<!-- QUICK LOG MODAL -->
+<div class="mo" id="mo-quick" style="display:none">
+  <div class="mdl" style="padding:24px;max-width:480px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+      <div style="font-family:'DM Serif Display',serif;font-size:20px;letter-spacing:-.3px">Quick log</div>
+      <button onclick="closeMo('mo-quick')" style="background:none;border:none;color:var(--t3);cursor:pointer;font-size:20px;padding:4px;line-height:1">×</button>
+    </div>
+    <!-- Amount + currency -->
+    <div style="display:flex;gap:8px;align-items:stretch;margin-bottom:16px">
+      <input type="number" id="ql-amt" placeholder="0" style="flex:1;font-family:'DM Mono',monospace;font-size:28px;font-weight:500;background:var(--s2);border:1px solid var(--bd);border-radius:12px;padding:14px 16px;color:var(--t);outline:none;min-width:0;letter-spacing:-1px"/>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <button id="ql-cop" onclick="setQuickCurrency('COP')" style="flex:1;padding:8px 14px;border-radius:8px;background:var(--a);border:none;color:#0d0f0e;font-family:'Sora',sans-serif;font-size:12px;font-weight:600;cursor:pointer">COP</button>
+        <button id="ql-usd" onclick="setQuickCurrency('USD')" style="flex:1;padding:8px 14px;border-radius:8px;background:var(--s2);border:1px solid var(--bd);color:var(--t2);font-family:'Sora',sans-serif;font-size:12px;font-weight:500;cursor:pointer">USD</button>
+      </div>
+    </div>
+    <!-- Currency mismatch warning -->
+    <div id="ql-warn" style="display:none;margin:-8px 0 14px;padding:8px 12px;background:rgba(245,196,102,.06);border:1px solid rgba(245,196,102,.3);border-radius:8px;font-size:12px;color:var(--a3)"></div>
+    <!-- Account chips -->
+    <div style="font-size:11px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;color:var(--t3);margin-bottom:8px">Account</div>
+    <div id="ql-accounts" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px"></div>
+    <!-- Envelope chips -->
+    <div style="font-size:11px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;color:var(--t3);margin-bottom:8px">Envelope</div>
+    <div id="ql-envs" style="display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;margin-bottom:16px"></div>
+    <!-- Optional description -->
+    <input type="text" id="ql-desc" placeholder="Description (optional)" style="width:100%;background:var(--s2);border:1px solid var(--bd);border-radius:10px;padding:11px 14px;color:var(--t);font-family:'Sora',sans-serif;font-size:13px;outline:none;box-sizing:border-box;margin-bottom:16px"/>
+    <!-- Log button -->
+    <button onclick="saveQuickLog()" style="width:100%;padding:14px;border-radius:12px;background:var(--a);border:none;color:#0d0f0e;font-family:'Sora',sans-serif;font-size:14px;font-weight:600;cursor:pointer">Log it ✓</button>
+  </div>
+</div>
 </body>
 </html>
